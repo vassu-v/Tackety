@@ -36,12 +36,23 @@ def call_ai(prompt: str, system_prompt: str = "", config: dict = {}) -> str:
     use_vertexai = config.get("vertexai", os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "False").lower() == "true")
     client = genai.Client(api_key=api_key, vertexai=use_vertexai)
     
-    # Select the model - default to gemini-2.0-flash
-    model_name = config.get("model_name", "gemini-2.0-flash")
+
+    model_name = config.get("model_name", "gemini-2.5-flash")
     
+    # Gemma models (via some SDK paths) don't support separate system_instruction.
+    # We'll prepend it to the prompt for these models.
+    is_gemma = "gemma" in model_name.lower()
+    
+    final_prompt = prompt
+    effective_system_instruction = system_prompt if system_prompt else None
+    
+    if is_gemma and system_prompt:
+        final_prompt = f"System: {system_prompt}\n\nUser: {prompt}"
+        effective_system_instruction = None
+
     # Prepare the GenerateContentConfig
     gen_config = types.GenerateContentConfig(
-        system_instruction=system_prompt if system_prompt else None,
+        system_instruction=effective_system_instruction,
         max_output_tokens=config.get("max_tokens", 4096),
         temperature=config.get("temperature", 0.7),
         top_p=config.get("top_p", 1.0),
@@ -52,7 +63,7 @@ def call_ai(prompt: str, system_prompt: str = "", config: dict = {}) -> str:
     try:
         response = client.models.generate_content(
             model=model_name,
-            contents=prompt,
+            contents=final_prompt,
             config=gen_config
         )
         
