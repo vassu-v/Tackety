@@ -4,7 +4,8 @@ import os
 # Add project root to path so engine imports work
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -66,7 +67,8 @@ def send_message(req: MessageRequest):
     """
     session = sm.get_session(req.session_id)
     if not session:
-        return MessageResponse(response="Error: Session not found.", session_status="error")
+        raise HTTPException(status_code=404, detail="Session not found")
+
 
     # If email provided mid-conversation, update it
     if req.customer_email:
@@ -109,8 +111,13 @@ def send_message(req: MessageRequest):
 @app.get("/session/{session_id}/history")
 def get_session_history(session_id: str):
     """Returns the full message history for a session."""
+    session = sm.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
     history = sm.get_history(session_id)
     return {"messages": history}
+
 
 
 @app.get("/health")

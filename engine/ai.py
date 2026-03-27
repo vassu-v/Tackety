@@ -2,12 +2,15 @@ import os
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+from typing import Optional
+
 
 # Load environment variables from the .env file in the same directory as this file
 dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 load_dotenv(dotenv_path)
 
-def call_ai(prompt: str, system_prompt: str = "", config: dict = {}) -> str:
+def call_ai(prompt: str, system_prompt: str = "", config: Optional[dict] = None) -> str:
+
     """
     The Swappable AI Caller - THE Single point for AI interaction.
     
@@ -22,7 +25,11 @@ def call_ai(prompt: str, system_prompt: str = "", config: dict = {}) -> str:
     Returns:
         str: The generated text response from the AI.
     """
+    if config is None:
+        config = {}
+    
     # Priority for API key:
+
     # 1. Passed in config['api_key'] 
     # 2. 'AI_API' environment variable (as requested)
     # 3. 'GOOGLE_API_KEY' environment variable (fallback)
