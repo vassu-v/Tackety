@@ -13,7 +13,9 @@ from pydantic import BaseModel
 from typing import Optional
 
 from engine.session_manager import SessionManager
-from engine.ai import call_ai
+from engine.doc_processor import DocProcessor
+from engine.chatbot import Chatbot
+from engine.router import Router
 
 # ── App Setup ──────────────────────────────────────────────────────────
 
@@ -32,6 +34,9 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
 sm = SessionManager(db_path=os.path.join(DATA_DIR, "conversations.db"))
+doc_processor = DocProcessor(db_path=os.path.join(DATA_DIR, "knowledge.db"))
+chatbot = Chatbot(sm, doc_processor)
+router = Router()
 
 # ── Request/Response Models ────────────────────────────────────────────
 
@@ -69,42 +74,19 @@ def send_message(req: MessageRequest):
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-
-    # If email provided mid-conversation, update it
-    if req.customer_email:
-        sm.update_email(req.session_id, req.customer_email)
-
-    # Store the user's message
-    sm.add_message(req.session_id, "user", req.message)
-
-    # Get full conversation history for context
-    history = sm.get_history(req.session_id)
-
-    # Build the prompt from history
-    conversation_context = "\n".join(
-        [f"{m['role'].upper()}: {m['content']}" for m in history]
+    # Delegate message handling, RAG, and state tracking to the Chatbot layer
+    chatbot_res = chatbot.handle_message(
+        session_id=req.session_id,
+        message=req.message,
+        customer_email=req.customer_email
     )
 
-    system_prompt = (
-        "You are a helpful and friendly customer support assistant for a SaaS product. "
-        "Keep your responses short, clear, and conversational — no long paragraphs. "
-        "Be empathetic and solution-oriented. "
-        "If the user describes a technical bug, acknowledge it and let them know you'll raise a ticket. "
-        "If the user has a billing or account question, help them directly or offer to connect them with a team member."
-    )
-
-    # Call the AI
-    ai_response = call_ai(
-        prompt=conversation_context,
-        system_prompt=system_prompt
-    )
-
-    # Store the assistant's response
-    sm.add_message(req.session_id, "assistant", ai_response)
+    # Route the AI's hidden decision
+    router.route_decision(req.session_id, chatbot_res)
 
     return MessageResponse(
-        response=ai_response,
-        session_status=session["status"]
+        response=chatbot_res["response"],
+        session_status=chatbot_res["state"]
     )
 
 
