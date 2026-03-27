@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tackety — Issue Engine</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #09090b;
+            --bg-panel: #18181b;
+            --bg-hover: #27272a;
+            --border: #27272a;
+            --text-main: #f4f4f5;
+            --text-muted: #a1a1aa;
+            --text-code: #d4d4d8;
+            --accent: #ffffff;
+            --accent-bg: #27272a;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --font-ui: 'Inter', -apple-system, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-ui);
+            background: var(--bg-base);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .layout-wrapper {
+            width: 100%;
+            max-width: 1000px;
+            height: 85vh;
+            max-height: 800px;
+            display: flex;
+            background: var(--bg-base);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+        }
+
+        /* Sidebar / Debug Panel */
+        .sidebar {
+            width: 320px;
+            background: #000000;
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            font-family: var(--font-mono);
+            font-size: 13px;
+        }
+
+        .sidebar-header {
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 24px;
+            font-weight: 500;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .log-stream {
+            flex: 1;
+            overflow-y: auto;
+            color: var(--text-muted);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .log-stream::-webkit-scrollbar { width: 4px; }
+        .log-stream::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+        .log-entry {
+            line-height: 1.5;
+            word-break: break-all;
+        }
+        
+        .log-entry.system { color: var(--text-code); }
+        .log-entry.success { color: var(--success); }
+        .log-entry.warning { color: var(--warning); }
+        .log-entry.highlight { color: var(--accent); }
+
+        /* Main Chat Area */
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-base);
+            position: relative;
+        }
+
+        .chat-header {
+            padding: 18px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-base);
+        }
+
+        .header-title {
+            font-size: 15px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .chat-messages::-webkit-scrollbar { width: 4px; }
+        .chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+        /* Messages */
+        .message {
+            display: flex;
+            flex-direction: column;
+            max-width: 85%;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            align-self: flex-end;
+            align-items: flex-end;
+        }
+
+        .message.assistant {
+            align-self: flex-start;
+        }
+
+        .message-content {
+            padding: 12px 16px;
+            font-size: 15px;
+            line-height: 1.6;
+            border-radius: 6px;
+            box-shadow: inset 0 0 0 1px var(--border);
+        }
+
+        .message.user .message-content {
+            background: var(--text-main);
+            color: #000;
+            box-shadow: none;
+            border-bottom-right-radius: 2px;
+        }
+
+        .message.assistant .message-content {
+            background: var(--bg-panel);
+            color: var(--text-main);
+            border-bottom-left-radius: 2px;
+        }
+
+        /* Ticket Card (Structured JSON visual) */
+        .ticket-card {
+            margin-top: 12px;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 16px;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            color: var(--text-code);
+            width: 100%;
+        }
+
+        .ticket-card-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.05em;
+        }
+        
+        .ticket-card-row {
+            display: flex;
+            margin-bottom: 6px;
+        }
+        
+        .ticket-card-key {
+            color: var(--text-muted);
+            width: 140px;
+            flex-shrink: 0;
+        }
+
+        .ticket-card-val.string { color: var(--success); }
+        .ticket-card-val.number { color: var(--warning); }
+
+        /* Typing & Input */
+        .typing-indicator {
+            display: none;
+            padding: 12px 16px;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            color: var(--text-muted);
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            border-bottom-left-radius: 2px;
+            align-self: flex-start;
+            margin-top: 8px;
+            margin-bottom: 16px;
+        }
+
+        .typing-indicator.active { display: block; }
+        .blink-cursor {
+            display: inline-block;
+            width: 8px;
+            height: 15px;
+            background: var(--text-muted);
+            vertical-align: middle;
+            margin-left: 4px;
+            animation: blink 1s step-end infinite;
+        }
+
+        @keyframes blink { 50% { opacity: 0; } }
+
+        .chat-input-area {
+            padding: 24px;
+            background: var(--bg-base);
+            border-top: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-wrapper {
+            display: flex;
+            align-items: center;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 4px;
+            transition: border-color 0.2s;
+        }
+
+        .input-wrapper:focus-within {
+            border-color: #52525b;
+        }
+
+        .input-wrapper input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text-main);
+            font-family: var(--font-ui);
+            font-size: 15px;
+            padding: 12px 16px;
+        }
+
+        .input-wrapper input::placeholder { color: var(--text-muted); }
+
+        .send-btn {
+            background: var(--text-main);
+            color: #000;
+            border: none;
+            border-radius: 4px;
+            padding: 10px 20px;
+            margin-right: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .send-btn:hover { opacity: 0.9; }
+        .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .error-banner {
+            display: none;
+            padding: 12px 24px;
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+            border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+            font-size: 14px;
+            text-align: center;
+        }
+        .error-banner.active { display: block; }
+        
+        .welcome-msg {
+            text-align: center;
+            margin: auto 0;
+            color: var(--text-muted);
+            font-size: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="layout-wrapper">
+        <!-- Sidebar Debug Panel -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <span>Engine Stream</span>
+                <span style="color: var(--success); font-family: var(--font-ui); font-size: 11px;">● LIVE</span>
+            </div>
+            <div class="log-stream" id="logStream">
+            </div>
+        </div>
+
+        <!-- Chat Interface -->
+        <div class="chat-container">
+            <div class="chat-header">
+                <div class="header-title">
+                    <div class="status-indicator"></div>
+                    Tackety Developer Support
+                </div>
+                <div style="font-family: var(--font-mono); font-size: 13px; color: var(--text-muted);" id="sessionIdDisplay">
+                    [Connecting...]
+                </div>
+            </div>
+
+            <div class="error-banner" id="errorBanner"></div>
+
+            <div class="chat-messages" id="chatMessages">
+                <div class="welcome-msg" id="welcomeCard">
+                    Tackety Engine is ready. Describe the issue.
+                </div>
+            </div>
+
+            <div class="chat-input-area">
+                <div class="typing-indicator" id="typingIndicator">
+                    Processing<span class="blink-cursor"></span>
+                </div>
+                <div class="input-wrapper">
+                    <input type="text" id="messageInput" placeholder="Enter issue details..." autocomplete="off" autofocus>
+                    <button class="send-btn" id="sendBtn">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = "http://localhost:8000";
+        const chatMessages = document.getElementById('chatMessages');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const typingIndicator = document.getElementById('typingIndicator');
+        const welcomeCard = document.getElementById('welcomeCard');
+        const errorBanner = document.getElementById('errorBanner');
+        const logStream = document.getElementById('logStream');
+        const sessionIdDisplay = document.getElementById('sessionIdDisplay');
+
+        let sessionId = localStorage.getItem('tackety_session_id');
+        let isLoading = false;
+
+        function addLog(text, type = 'system') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            const time = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            entry.textContent = `[${time}] ${text}`;
+            logStream.appendChild(entry);
+            logStream.scrollTop = logStream.scrollHeight;
+        }
+
+        async function initSession() {
+            addLog('Initializing Tackety Engine v0.1...', 'system');
+            addLog('Product doc vectors loaded.', 'system');
+
+            if (sessionId) {
+                try {
+                    const res = await fetch(`${API_BASE}/session/${sessionId}/history`);
+                    const data = await res.json();
+                    if (data.messages && data.messages.length > 0) {
+                        welcomeCard.style.display = 'none';
+                        sessionIdDisplay.textContent = `ID: ${sessionId.split('-')[0]}`;
+                        addLog(`Restoring session ${sessionId.split('-')[0]}...`, 'highlight');
+                        data.messages.forEach(m => appendMessage(m.role, m.content, false));
+                        scrollToBottom();
+                        return;
+                    }
+                } catch (e) {
+                    addLog('Session check failed, creating new.', 'system');
+                }
+            }
+            await createNewSession();
+        }
+
+        async function createNewSession() {
+            try {
+                addLog('Requesting new session allocation...', 'system');
+                const res = await fetch(`${API_BASE}/session/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const data = await res.json();
+                sessionId = data.session_id;
+                localStorage.setItem('tackety_session_id', sessionId);
+                sessionIdDisplay.textContent = `ID: ${sessionId.split('-')[0]}`;
+                addLog(`Session created: ${sessionId}`, 'success');
+                hideError();
+            } catch (e) {
+                showError('Cannot connect to server. Ensure API is running.');
+                addLog('Connection refused on port 8000.', 'warning');
+                sessionIdDisplay.textContent = '[Offline]';
+            }
+        }
+
+        async function sendMessage() {
+            const text = messageInput.value.trim();
+            if (!text || isLoading) return;
+
+            welcomeCard.style.display = 'none';
+            appendMessage('user', text);
+            messageInput.value = '';
+            hideError();
+
+            isLoading = true;
+            sendBtn.disabled = true;
+            typingIndicator.classList.add('active');
+            addLog('Received input, sending to classifier...', 'system');
+            scrollToBottom();
+
+            try {
+                const res = await fetch(`${API_BASE}/session/message`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: sessionId, message: text })
+                });
+                const data = await res.json();
+                typingIndicator.classList.remove('active');
+                
+                const sessionStatus = data.session_status || 'RESOLVING';
+                addLog(`Classifier state: ${sessionStatus}`, 'highlight');
+
+                if (sessionStatus === 'closed') {
+                    addLog('Session closed. Webhook event fired.', 'success');
+                    appendMessage('assistant', data.response, true, true);
+                } else {
+                    appendMessage('assistant', data.response);
+                }
+                
+            } catch (e) {
+                typingIndicator.classList.remove('active');
+                showError('Failed to get response.');
+                addLog('API request failed timeout/error.', 'warning');
+            } finally {
+                isLoading = false;
+                sendBtn.disabled = false;
+                messageInput.focus();
+                scrollToBottom();
+            }
+        }
+
+        function appendMessage(role, content, animate = true, isTicket = false) {
+            const msg = document.createElement('div');
+            msg.className = `message ${role}`;
+            if (!animate) msg.style.animation = 'none';
+
+            let innerHtml = `<div class="message-content">${escapeHtml(content)}</div>`;
+            
+            // Faux ticket render if it's a closed session
+            if (isTicket && role === 'assistant') {
+                innerHtml += `
+                <div class="ticket-card">
+                    <div class="ticket-card-header">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 2px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                        Ticket Dispatched
+                    </div>
+                    <div class="ticket-card-row">
+                        <span class="ticket-card-key">resource_type:</span>
+                        <span class="ticket-card-val string">"technical_issue"</span>
+                    </div>
+                    <div class="ticket-card-row">
+                        <span class="ticket-card-key">classification:</span>
+                        <span class="ticket-card-val string">"routed"</span>
+                    </div>
+                    <div class="ticket-card-row">
+                        <span class="ticket-card-key">confidence_score:</span>
+                        <span class="ticket-card-val number">0.96</span>
+                    </div>
+                    <div class="ticket-card-row">
+                        <span class="ticket-card-key">cluster_action:</span>
+                        <span class="ticket-card-val string">"mapped"</span>
+                    </div>
+                </div>`;
+            }
+
+            msg.innerHTML = innerHtml;
+            chatMessages.appendChild(msg);
+            scrollToBottom();
+            
+            if (role === 'user') {
+                addLog(`User msg len: ${content.length} chars`, 'system');
+            }
+        }
+
+        function scrollToBottom() {
+            requestAnimationFrame(() => {
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            });
+        }
+
+        function showError(text) {
+            errorBanner.textContent = text;
+            errorBanner.classList.add('active');
+        }
+
+        function hideError() {
+            errorBanner.classList.remove('active');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        sendBtn.addEventListener('click', sendMessage);
+
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.shiftKey && e.key === 'N') {
+                e.preventDefault();
+                localStorage.removeItem('tackety_session_id');
+                chatMessages.innerHTML = '';
+                welcomeCard.style.display = '';
+                chatMessages.appendChild(welcomeCard);
+                addLog('Manual session reset via shortcut.', 'warning');
+                createNewSession();
+            }
+        });
+
+        initSession();
+    </script>
+</body>
+</html>

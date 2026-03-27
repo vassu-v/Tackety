@@ -2,12 +2,15 @@ import os
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+from typing import Optional
+
 
 # Load environment variables from the .env file in the same directory as this file
 dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 load_dotenv(dotenv_path)
 
-def call_ai(prompt: str, system_prompt: str = "", config: dict = {}) -> str:
+def call_ai(prompt: str, system_prompt: str = "", config: Optional[dict] = None) -> str:
+
     """
     The Swappable AI Caller - THE Single point for AI interaction.
     
@@ -22,7 +25,11 @@ def call_ai(prompt: str, system_prompt: str = "", config: dict = {}) -> str:
     Returns:
         str: The generated text response from the AI.
     """
+    if config is None:
+        config = {}
+    
     # Priority for API key:
+
     # 1. Passed in config['api_key'] 
     # 2. 'AI_API' environment variable (as requested)
     # 3. 'GOOGLE_API_KEY' environment variable (fallback)
@@ -36,12 +43,23 @@ def call_ai(prompt: str, system_prompt: str = "", config: dict = {}) -> str:
     use_vertexai = config.get("vertexai", os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "False").lower() == "true")
     client = genai.Client(api_key=api_key, vertexai=use_vertexai)
     
-    # Select the model - default to gemini-2.0-flash
-    model_name = config.get("model_name", "gemini-2.0-flash")
+
+    model_name = config.get("model_name", "gemini-2.5-flash")
     
+    # Gemma models (via some SDK paths) don't support separate system_instruction.
+    # We'll prepend it to the prompt for these models.
+    is_gemma = "gemma" in model_name.lower()
+    
+    final_prompt = prompt
+    effective_system_instruction = system_prompt if system_prompt else None
+    
+    if is_gemma and system_prompt:
+        final_prompt = f"System: {system_prompt}\n\nUser: {prompt}"
+        effective_system_instruction = None
+
     # Prepare the GenerateContentConfig
     gen_config = types.GenerateContentConfig(
-        system_instruction=system_prompt if system_prompt else None,
+        system_instruction=effective_system_instruction,
         max_output_tokens=config.get("max_tokens", 4096),
         temperature=config.get("temperature", 0.7),
         top_p=config.get("top_p", 1.0),
@@ -52,7 +70,7 @@ def call_ai(prompt: str, system_prompt: str = "", config: dict = {}) -> str:
     try:
         response = client.models.generate_content(
             model=model_name,
-            contents=prompt,
+            contents=final_prompt,
             config=gen_config
         )
         
