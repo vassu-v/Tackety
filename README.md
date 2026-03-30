@@ -40,34 +40,13 @@ Tackety is modularized to ensure strict separation of concerns:
 - **[`/demo`](./demo)** — The Client Interface. A sleek, terminal-inspired frontend interface demonstrating the client-side interaction with the Tackety engine. It visualizes the internal JSON logs, routing states, and ticket dispatches in real-time.
 - **[`DESIGN.md`](./DESIGN.md)** — The complete architectural blueprint. If you want to know *why* we chose three separate SQLite databases instead of one, or why the Normalizer uses a specific similarity threshold, read this.
 
-## 🛠️ Quick Start Guide
+## 🛠️ Quick Start & Integration Guide
 
-Tackety is designed to be configured and run rapidly with minimal overhead. 
+Tackety is designed to be configured and run rapidly with minimal overhead, but it requires specific integrations with your company's documents to function correctly.
 
-### 1. Prerequisites
-- Python 3.10+
-- The required AI python SDK and `fastapi` stack.
+> 🚀 **For step-by-step installation, document injection, and FastAPI integration instructions, please read [SETUP.md](./SETUP.md).**
 
-### 2. Setup the Engine
-Navigate to the engine directory and install requirements:
-```bash
-cd engine
-pip install fastapi uvicorn google-genai python-dotenv
-```
-
-### 3. Environment Variables
-Create a `.env` file in the `engine/` directory to authenticate your AI model:
-```env
-AI_API=your_api_key_here
-```
-
-### 4. Run the Server
-Tackety's API ships with a baked-in runner. Start the FastAPI server on port 8000:
-```bash
-python api.py
-```
-
-*For more expansive endpoints, database specifics, and session tracking details, refer to the **[Engine Documentation](./engine/README.md)**.*
+*For more expansive details on the internal semantic clustering, databases, and routing architecture, refer to the **[Engine Documentation](./engine/README.md)**.*
 
 ## 🤝 Contributing
 
