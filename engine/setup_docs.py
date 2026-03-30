@@ -1,5 +1,9 @@
 import os
 import sys
+
+# Ensure engine imports resolve correctly from within the engine directory
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from engine.doc_processor import DocProcessor
 from engine.fileprocess import filetypeprocessor
 

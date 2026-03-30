@@ -2,21 +2,24 @@
 
 Welcome to the heart of the **Tackety Issue Engine**. This directory houses the business logic, intelligence layers, and API surface that transform raw customer messages into structured, clustered technical data.
 
+> ⚠️ **Looking for Installation or Integration Instructions?** 
+> Please see the [Quick-Start SETUP Guide (../SETUP.md)](../SETUP.md) located at the root of the repository. This document (engine/README.md) focuses exclusively on the internal architectural design and data flow.
+
 ---
 
-## 🏛️ Architecture Overview
+## 🏛️ Architecture Overview (Phase 3.7 Release)
 
-The engine follows a decoupled, three-layer "Intelligence Heart" architecture:
+The engine follows a decoupled, three-layer "Intelligence Heart" architecture heavily reinforced with context injection and dynamic rendering capabilities:
 
-1.  **The Intake Layer** (`chatbot.py`): Decides if a query is resolved, needs a technical ticket, or requires a human handover.
-2.  **The Processing Layer** (`router.py`, `normalizer.py`, `issue_engine.py`): The "Heart" that maps terminology and clusters technical issues via vector similarity.
-3.  **The Surface Layer** (`api.py`): Exposes the clustered intelligence and support queues to the dashboard and external clients.
+1.  **The Intake Layer** (`chatbot.py`): The direct customer interface. Instructed by dense **Company Policies** and **Retrieved Knowledge Base**, it decides if a query is resolved, needs a technical ticket, or requires a human handover.
+2.  **The Processing Layer** (`router.py`, `normalizer.py`, `issue_engine.py`): The "Heart" that maps terminology (using both internal product maps and dynamically generating novel slugs) and clusters technical issues via semantic vector similarity.
+3.  **The Surface Layer** (`api.py`): Exposes the clustered intelligence (`/support/queue`) and loops routing metadata directly back into chat clients.
 
 ### Core Components
 
 *   🧠 **`chatbot.py` (Structured Intelligence)**
-    *   Dual-mode orchestrator: provides natural chat to the user while maintaining a strictly structured JSON state for the engine.
-    *   **Classifies** issues as `TECHNICAL` (engineering) or `NON-TECHNICAL` (support).
+    *   Dual-mode orchestrator: provides natural chat using `gemini-2.5-flash` while maintaining a strictly structured JSON state for the engine.
+    *   **Strict Protocol Injection**: Customer management rules are summarized by an LLM during setup and permanently injected into the Chatbot's System Prompt on every turn. This ensures maximum policy compliance (Refunds, Escalations) without relying heavily on variable RAG results.
 
 *   🫀 **`issue_engine.py` (The Engineering Heart)**
     *   Uses **`sqlite-vec`** for semantic clustering.
@@ -24,81 +27,65 @@ The engine follows a decoupled, three-layer "Intelligence Heart" architecture:
 
 *   🤝 **`human_queue.py` (The Support Hub)**
     *   Manages manual intervention tasks.
-    *   Handles **Non-Technical Tickets** (Billing, Policy) and **Active Handovers** (Live Chat sessions).
+    *   Handles **Non-Technical Tickets** (Billing, Policy) and **Active Handovers** (Live Chat sessions) completely decoupled from Engineering noise.
 
 *   🗺️ **`normalizer.py` (Terminology Mapping)**
-    *   Translates "user-speak" into internal technical slugs using a hybrid RAG model.
-    *   Ensures that different descriptions of the same technical bug (e.g., "spinning wheel" vs "hang") map to the same cluster.
+    *   Translates "user-speak" into internal technical slugs.
+    *   **Dynamic Slugs**: Prioritizes matching against established `PRODUCT_MAP` terminology. If identical, groups it together. If unprecedented, the AI securely invents a descriptive mapping (e.g., `UNEXPECTED_COLOR_SHIFT`) so it can still enter the clustering flow.
 
-*   📄 **`doc_processor.py` (The Knowledge Base)**
-    *   Handles document chunking, embedding generation, and vector retrieval.
-    *   Performs specialized **Preprocessing** on product manuals to create dense terminology maps.
+*   📄 **`doc_processor.py` & `fileprocess.py` (The Knowledge Base)**
+    *   Handles chunking, embedding generation using `sentence-transformers`, and dynamic preprocessing.
+    *   Supported file formats: **`.txt`, `.md`, and `.pdf`** (via `pypdf`).
+    *   Specializes raw documents into RAG databases, technical terminology mappings, and dense Chatbot prompt policies.
 
 *   🔌 **`api.py` (The Gateway)**
-    *   FastAPI-based REST surface.
-    *   Serves both the chat session endpoints and the real-time **Intelligence Dashboard** data.
+    *   FastAPI-based REST surface. Parses responses from the Router and loops `routing` schemas directly back to clients for dynamic UI renders.
 
 *   📡 **`webhooks.py` (Event Dispatcher)**
     *   Generic, signed **HMAC-SHA256** notification system.
-    *   Fires events for `ticket.created`, `handoff.initiated`, etc., to external developer URLs.
 
 ---
 
 ## 💾 Data Persistence
 
-Tackety uses three distinct SQLite databases to ensure clear separation of concerns:
+Tackety uses three distinct SQLite databases to ensure clear separation of concerns (all generated within `engine/data/`):
 
 1.  **`conversations.db`**: Ephemeral short-term chat history and session states.
 2.  **`issues.db`**: Permanent technical records (Clusters, Tickets, and Weights).
 3.  **`support.db`**: Permanent non-technical tasks and active human queue cases.
+4.  **`knowledge.db`**: RAG embeddings and references. (Backed by `sqlite-vec`).
+
+_Note: The `engine/data` folder is specifically ignored in `.gitignore` to protect sensitive ticket state._
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Getting Started (Self-Hosted)
 
-### Prerequisites
+*For detailed, step-by-step instructions on injecting your own documents and exploring the API, please refer to the [SETUP.md](../SETUP.md) guide.*
 
-1.  Python 3.10+
-2.  Install core dependencies:
-    ```bash
-    pip install fastapi uvicorn google-genai python-dotenv sqlite-vec sentence-transformers
-    ```
-
-3.  **Setup Intelligence**:
-    Initialize your knowledge base and preprocess your terminology maps:
-    ```bash
-    python setup_docs.py
-    ```
-
-### Starting the Server
-
+### Quick Start
 ```bash
+python engine/setup_docs.py
 cd engine
 python api.py
 ```
 
-*The server will start on `http://localhost:8000`. The dashboard is viewable at `/demo/queue.html`.*
+*The core application will start on `http://localhost:8000`.*
 
 ---
 
-## 🔌 Key API Endpoints
+## 🖥️ Surfaces & Interfaces
 
-Explore the full interactive documentation at `http://localhost:8000/docs`.
+Tackety provides three primary visual contexts located in the `/demo` namespace for interaction:
 
-#### 1. Interactive Chat
-*   `POST /session/message`: Sends a message and returns the AI response + current engine state.
-
-#### 2. Intelligence Dashboard
-*   `GET /support/queue`: Returns the unified status of the technical clusters and support cases.
-
-#### 3. Session Management
-*   `POST /session/start`: Initializes a new user session.
-*   `GET /session/{session_id}/history`: Fetches the chronological history.
+1.  **`/demo/index.html`**: The highly dynamic Customer Chat surface. Supports routing metadata loopback to show exactly how Tackety parsed an issue.
+2.  **`/demo/agent.html`**: The Support Worker workspace. Real-time access to non-technical escalations and Live Chat Handoffs. 
+3.  **`/demo/master.html`**: The Administrative Command Center. Live system flow tracking, cluster aggregation, and telemetry.
 
 ---
 
 ## 🔮 Next Steps (Roadmap)
 
-1.  **Interactive Resolution**: Allow developers to manually merge or resolve clusters from the dashboard.
-2.  **Live Handoff Bridge**: A dedicated agent-side UI to take over active chat sessions.
-3.  **Auth Layer**: Token-based security for the Intelligence Dashboard.
+1.  **Interactive Resolution**: Allow developers to manually merge or resolve clusters from the Master Command Center.
+2.  **Live Handoff Bridge**: Allow Agents to seamlessly assume control of active Chat Sessions from the Agent UI without dropping the user socket.
+3.  **Auth Layer**: Implement token-based security for the Intelligence Dashboard endpoints.
