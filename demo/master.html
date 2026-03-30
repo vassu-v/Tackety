@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tackety — Master Console</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #09090b;
+            --bg-panel: #18181b;
+            --border: #27272a;
+            --text-main: #f4f4f5;
+            --text-muted: #a1a1aa;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --font-ui: 'Inter', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        body {
+            font-family: var(--font-ui);
+            background: var(--bg-base);
+            color: var(--text-main);
+            margin: 0;
+            padding: 32px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 24px;
+            margin-bottom: 32px;
+        }
+
+        .title {
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .stat-label {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .stat-val {
+            font-size: 36px;
+            font-weight: 500;
+            font-family: var(--font-mono);
+        }
+
+        .console-log {
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 24px;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            color: var(--text-muted);
+            min-height: 400px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="title">
+                <div style="width: 8px; height: 8px; background: var(--success); border-radius: 50%;"></div>
+                TACKETY // MASTER CONSOLE
+            </div>
+            <div style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">
+                LIVE TELEMETRY
+            </div>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-label">AI Resolution Rate</span>
+                <span class="stat-val" style="color: var(--success);" id="ai-rate">--%</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Active Clusters</span>
+                <span class="stat-val" id="cluster-count">0</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Pending Interventions</span>
+                <span class="stat-val" style="color: var(--warning);" id="human-count">0</span>
+            </div>
+        </div>
+
+        <div class="console-log">
+            <div style="margin-bottom: 16px; color: var(--text-main);">// SYSTEM EVENT LOG</div>
+            <div id="log-content">
+                [SYSTEM] Master console initialized. Awaiting telemetry...<br>
+                [SYSTEM] /stats/engine endpoint connection pending backend integration.<br>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function fetchTelemetry() {
+            try {
+                // Fetch live cluster and support data
+                const res = await fetch('http://localhost:8000/support/queue');
+                const data = await res.json();
+                
+                const clusters = data.technical_clusters || [];
+                const supportCases = data.support_cases || {};
+                const humans = (supportCases.NON_TECHNICAL_TICKETS?.length || 0) + (supportCases.CHAT_HANDOVERS?.length || 0);
+
+                document.getElementById('cluster-count').textContent = clusters.length;
+                document.getElementById('human-count').textContent = humans;
+
+                // Faux resolution rate for now until API `/stats/engine` is built
+                document.getElementById('ai-rate').textContent = (clusters.length === 0 && humans === 0) ? '100%' : '78.4%';
+
+            } catch (e) {
+                console.error('Telemetry failed', e);
+            }
+        }
+        fetchTelemetry();
+        setInterval(fetchTelemetry, 5000);
+    </script>
+</body>
+</html>

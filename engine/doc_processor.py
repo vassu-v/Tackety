@@ -4,6 +4,7 @@ import struct
 from typing import List, Dict, Optional
 import os
 from engine.ai import call_ai
+from engine.fileprocess import filetypeprocessor
 
 try:
     from sentence_transformers import SentenceTransformer
@@ -222,6 +223,31 @@ class DocProcessor:
             f.write(preprocessed_text)
             
         print(f"Product map saved to {output_path}")
+        return preprocessed_text
+
+    def process_customer_management(self, text: str, output_path: str) -> str:
+        """
+        Specialized LLM call to create a dense, rule-based summary for prompt injection.
+        This summary is intended to be injected into the chatbot's system prompt.
+        """
+        print(f"Summarizing customer management rules for prompt injection...")
+        system_prompt = (
+            "You are a policy analyst for a customer support engine. "
+            "Your task is to take raw customer management and policy documents and condense them into a 'Operational Protocol'.\n"
+            "Focus on:\n"
+            "1. REFUND eligibility and procedures.\n"
+            "2. ESCALATION triggers (when MUST a user see a human).\n"
+            "3. PROHIBITED actions and security guardrails.\n"
+            "Keep it dense, internal, and formatted for a System Prompt."
+        )
+        
+        preprocessed_text = call_ai(prompt=text, system_prompt=system_prompt)
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(preprocessed_text)
+            
+        print(f"Management rules saved to {output_path}")
         return preprocessed_text
 
     def clear_docs(self, doc_type: str):

@@ -1,53 +1,53 @@
 import os
+import sys
 from engine.doc_processor import DocProcessor
+from engine.fileprocess import filetypeprocessor
 
-def setup():
-    # Use the same data directory as the API
-    data_dir = os.path.join("engine", "data")
-    os.makedirs(data_dir, exist_ok=True)
-    db_path = os.path.join(data_dir, "knowledge.db")
+# --- CONFIGURATION (Self-Hosting Friendly) ---
+# Can be overridden via command line or environment
+DOCS_SOURCE_DIR = os.getenv("TACKETY_DOCS_DIR", "demo/docs")
+DATA_DIR = "engine/data"
+
+def run_setup():
+    print(f"--- Tackety Knowledge Setup (Source: {DOCS_SOURCE_DIR}) ---")
     
-    print(f"Initializing knowledge base at {db_path}...")
-    dp = DocProcessor(db_path=db_path)
-    
-    print("Clearing old data...")
-    dp.clear_docs("company")
-    dp.clear_docs("product")
+    if not os.path.exists(DOCS_SOURCE_DIR):
+        print(f"Error: Docs directory '{DOCS_SOURCE_DIR}' not found. Please create it or set TACKETY_DOCS_DIR.")
+        sys.exit(1)
 
-    company_doc = """# Company Overview
-Tackety is a self-hostable, developer-first issue clustering system. We focus on automation and privacy.
+    os.makedirs(DATA_DIR, exist_ok=True)
+    dp = DocProcessor(db_path=os.path.join(DATA_DIR, "knowledge.db"))
 
-# Refund Policy
-We offer 100% refunds within 30 days of purchase. Just email support@tackety.engine.
+    # 1. Company Doc -> RAG (knowledge.db)
+    # This provides the deep searchable knowledge base
+    company_pdf = os.path.join(DOCS_SOURCE_DIR, "company_doc.pdf")
+    company_text = filetypeprocessor(company_pdf)
+    if company_text:
+        print("Ingesting Company Knowledge into RAG database...")
+        dp.clear_docs("company")
+        dp.ingest_document(company_text, "company")
+    else:
+        print(f"Warning: Could not process {company_pdf}")
 
-# Contact Info
-Support email: support@tackety.engine
-Human escalation: escalation@tackety.engine
-"""
+    # 2. Product Doc -> Mapping (product_context.txt)
+    # This provides the technical slugs for the Normalizer
+    product_pdf = os.path.join(DOCS_SOURCE_DIR, "product_doc.pdf")
+    product_text = filetypeprocessor(product_pdf)
+    if product_text:
+        dp.process_product_doc(product_text, os.path.join(DATA_DIR, "product_context.txt"))
+    else:
+        print(f"Warning: Could not process {product_pdf}")
 
-    product_doc = """# Authentication Issues
-If users are logged out randomly, it's likely a cookie setting or JWT expiration.
+    # 3. Customer Management -> Summary (management_rules.txt)
+    # This provides core policies for prompt injection in Chatbot
+    mgmt_pdf = os.path.join(DOCS_SOURCE_DIR, "customer_management_doc.pdf")
+    mgmt_text = filetypeprocessor(mgmt_pdf)
+    if mgmt_text:
+        dp.process_customer_management(mgmt_text, os.path.join(DATA_DIR, "management_rules.txt"))
+    else:
+        print(f"Warning: Could not process {mgmt_pdf}")
 
-# Checkout Crashes
-If the cart crashes with many items, check the local storage sync logic in demo/index.html.
-
-# Database Locked
-If you see 'database is locked', the SessionManager RLock is likely working, but ensure WAL mode is enabled.
-"""
-
-    print("Ingesting docs...")
-    dp.ingest_document(company_doc, "company")
-    dp.ingest_document(product_doc, "product")
-    
-    # NEW: Preprocess the company doc into a prompt-ready context file
-    company_context_path = os.path.join(data_dir, "company_context.txt")
-    dp.process_company_doc(company_doc, company_context_path)
-
-    # NEW: Preprocess the product doc for technical mapping
-    product_context_path = os.path.join(data_dir, "product_context.txt")
-    dp.process_product_doc(product_doc, product_context_path)
-    
-    print("Setup complete.")
+    print("\nSetup complete. Documentation preprocessed and knowledge base initialized.")
 
 if __name__ == "__main__":
-    setup()
+    run_setup()

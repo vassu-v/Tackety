@@ -33,7 +33,7 @@ class Router:
         
         # Path 1: Active resolving or final resolved success
         if state in ["RESOLVING", "RESOLVED"]:
-            return
+            return None
             
         print(f"\n[ROUTER] Orchestrating Heart for Session {session_id} (State: {state})")
         
@@ -72,6 +72,13 @@ class Router:
                     "slug": mapping["normalized_slug"],
                     "session_id": session_id
                 })
+                
+                return {
+                    "type": "TECHNICAL",
+                    "cluster_id": cluster_id,
+                    "slug": mapping["normalized_slug"],
+                    "urgency": self._get_cluster_urgency(cluster_id) # helper needed if we want urgency, or just omit for now if not easily available
+                }
             else:
                 # Support Pipeline (Non-Technical Ticket)
                 print(f"[ROUTER] Directing non-technical issue to Support Hub.")
@@ -80,6 +87,10 @@ class Router:
                     "session_id": session_id,
                     "summary": summary
                 })
+                return {
+                    "type": "NON_TECHNICAL",
+                    "summary": summary
+                }
                 
         # Path 4: Direct Handover
         elif state == "ESCALATE_HUMAN":
@@ -89,3 +100,21 @@ class Router:
                  "session_id": session_id,
                  "summary": summary
              })
+             return {
+                 "type": "HANDOVER",
+                 "summary": summary
+             }
+             
+        return None
+        
+    def _get_cluster_urgency(self, cluster_id):
+        # Helper to fetch urgency to pass back to the UI
+        try:
+             conn = self.issue_engine._get_conn()
+             row = conn.execute("SELECT urgency FROM clusters WHERE id = ?", (cluster_id,)).fetchone()
+             conn.close()
+             if row:
+                 return row[0]
+        except Exception:
+             pass
+        return "NORMAL"

@@ -16,10 +16,11 @@ class Chatbot:
     - RAG retrieval for technical product details.
     """
     
-    def __init__(self, session_manager: SessionManager, doc_processor: DocProcessor, company_context: str = ""):
+    def __init__(self, session_manager: SessionManager, doc_processor: DocProcessor, company_context: str = "", management_context: str = ""):
         self.sm = session_manager
         self.doc_processor = doc_processor
         self.company_context = company_context
+        self.management_context = management_context
 
     def handle_message(self, session_id: str, message: str, customer_email: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -45,7 +46,10 @@ class Chatbot:
 You are the Tackety Support Engine. You provide technical help and resolve issues.
 
 ## COMPANY POLICIES & CUSTOMER MANAGEMENT (Mandatory Rules):
-{self.company_context if self.company_context else "Default policies apply."}
+{self.management_context if self.management_context else "Default policies apply."}
+
+## GENERAL COMPANY CONTEXT:
+{self.company_context if self.company_context else "No general context provided."}
 
 ## PRODUCT TECHNICAL KNOWLEDGE (Retrieved Context):
 {product_context_str if product_context_str else "Refer to general technical best practices."}

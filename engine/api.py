@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from engine.session_manager import SessionManager
 from engine.doc_processor import DocProcessor
@@ -66,6 +66,18 @@ try:
 except Exception as e:
     print(f"Error loading product context: {e}")
 
+management_context = ""
+management_context_path = os.path.join(DATA_DIR, "management_rules.txt")
+try:
+    if os.path.exists(management_context_path):
+        with open(management_context_path, "r", encoding="utf-8") as f:
+            management_context = f.read()
+            print(f"Loaded {len(management_context)} chars of management rules.")
+    else:
+        print("WARNING: No management rules found. Run setup_docs.py first.")
+except Exception as e:
+    print(f"Error loading management context: {e}")
+
 # 3. Decision & Handoff Components (Dependency Injection)
 normalizer = Normalizer(doc_processor, product_context=product_context)
 support_hub = SupportHub(db_path=os.path.join(DATA_DIR, "support.db"))
@@ -73,7 +85,7 @@ issue_engine = IssueEngine(db_path=os.path.join(DATA_DIR, "issues.db"))
 webhooks = Webhooks()
 
 # 4. Intelligence Hubs
-chatbot = Chatbot(sm, doc_processor, company_context=company_context)
+chatbot = Chatbot(sm, doc_processor, company_context=company_context, management_context=management_context)
 router = Router(normalizer, support_hub, issue_engine, webhooks, doc_processor)
 
 # ── Request/Response Models ────────────────────────────────────────────
@@ -92,6 +104,7 @@ class MessageRequest(BaseModel):
 class MessageResponse(BaseModel):
     response: str
     session_status: str
+    routing: Optional[Dict[str, Any]] = None
 
 # ── Endpoints ──────────────────────────────────────────────────────────
 
@@ -120,13 +133,13 @@ def send_message(req: MessageRequest):
     )
 
     # Route the AI's hidden decision
-    router.route_decision(req.session_id, chatbot_res)
+    routing_result = router.route_decision(req.session_id, chatbot_res)
 
     return MessageResponse(
         response=chatbot_res["response"],
-        session_status=chatbot_res["state"]
+        session_status=chatbot_res["state"],
+        routing=routing_result
     )
-
 
 @app.get("/session/{session_id}/history")
 def get_session_history(session_id: str):

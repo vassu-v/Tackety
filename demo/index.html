@@ -522,9 +522,9 @@
                 const sessionStatus = data.session_status || 'RESOLVING';
                 addLog(`Classifier state: ${sessionStatus}`, 'highlight');
 
-                if (sessionStatus === 'closed') {
-                    addLog('Session closed. Webhook event fired.', 'success');
-                    appendMessage('assistant', data.response, true, true);
+                if (data.routing) {
+                    addLog(`Engine routing triggered: ${data.routing.type}`, 'success');
+                    appendMessage('assistant', data.response, true, data.routing);
                 } else {
                     appendMessage('assistant', data.response);
                 }
@@ -541,37 +541,60 @@
             }
         }
 
-        function appendMessage(role, content, animate = true, isTicket = false) {
+        function appendMessage(role, content, animate = true, routingData = null) {
             const msg = document.createElement('div');
             msg.className = `message ${role}`;
             if (!animate) msg.style.animation = 'none';
 
             let innerHtml = `<div class="message-content">${escapeHtml(content)}</div>`;
 
-            // Faux ticket render if it's a closed session
-            if (isTicket && role === 'assistant') {
+            // Dynamic ticket render from routing metadata
+            if (routingData && role === 'assistant') {
+                let cardRows = '';
+                
+                if (routingData.type === 'TECHNICAL') {
+                    cardRows = `
+                    <div class="ticket-card-row">
+                        <span class="ticket-card-key">cluster_id:</span>
+                        <span class="ticket-card-val number">${routingData.cluster_id}</span>
+                    </div>
+                    <div class="ticket-card-row">
+                        <span class="ticket-card-key">issue_slug:</span>
+                        <span class="ticket-card-val string">"${routingData.slug}"</span>
+                    </div>
+                    <div class="ticket-card-row">
+                        <span class="ticket-card-key">urgency:</span>
+                        <span class="ticket-card-val string">"${routingData.urgency}"</span>
+                    </div>`;
+                } else if (routingData.type === 'NON_TECHNICAL') {
+                    cardRows = `
+                    <div class="ticket-card-row">
+                        <span class="ticket-card-key">hub_queue:</span>
+                        <span class="ticket-card-val string">"NON_TECHNICAL_TICKETS"</span>
+                    </div>
+                    <div class="ticket-card-row">
+                        <span class="ticket-card-key">status:</span>
+                        <span class="ticket-card-val string">"PENDING_REVIEW"</span>
+                    </div>`;
+                } else if (routingData.type === 'HANDOVER') {
+                    cardRows = `
+                    <div class="ticket-card-row">
+                        <span class="ticket-card-key">hub_queue:</span>
+                        <span class="ticket-card-val string">"ACTIVE_HANDOVERS"</span>
+                    </div>
+                    <div class="ticket-card-row">
+                        <span class="ticket-card-key">action:</span>
+                        <span class="ticket-card-val string">"WAITING_FOR_AGENT"</span>
+                    </div>`;
+                }
+
                 innerHtml += `
                 <div class="ticket-card">
                     <div class="ticket-card-header">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 2px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                        Ticket Dispatched
+                        TACKETY ENGINE RECORD
                     </div>
-                    <div class="ticket-card-row">
-                        <span class="ticket-card-key">resource_type:</span>
-                        <span class="ticket-card-val string">"technical_issue"</span>
-                    </div>
-                    <div class="ticket-card-row">
-                        <span class="ticket-card-key">classification:</span>
-                        <span class="ticket-card-val string">"routed"</span>
-                    </div>
-                    <div class="ticket-card-row">
-                        <span class="ticket-card-key">confidence_score:</span>
-                        <span class="ticket-card-val number">0.96</span>
-                    </div>
-                    <div class="ticket-card-row">
-                        <span class="ticket-card-key">cluster_action:</span>
-                        <span class="ticket-card-val string">"mapped"</span>
-                    </div>
+                    ${cardRows}
                 </div>`;
             }
 

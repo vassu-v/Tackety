@@ -29,16 +29,22 @@ class Normalizer:
         system_prompt = f"""
         You are a Technical Terminology Mapper. Your job is to translate customer issues into internal feature slugs.
         
-        ## PRODUCT TERMINOLOGY MAP (Extracted Rules):
+        ## PRODUCT TERMINOLOGY MAP (Established Slugs):
         {self.product_context if self.product_context else "Use general technical naming."}
         
         ## LIVE DOC CONTEXT (Retrieved Sections):
         {rag_str if rag_str else "No direct matches found."}
         
+        ## SLUG GENERATION RULES:
+        1. Priority 1: Match the issue to an established slug from the Product Map.
+        2. Priority 2: If the issue is entirely unprecedented, DYNAMICALLY GENERATE a new, highly descriptive slug. 
+           - Must be ALL_CAPS.
+           - Must use underscores (e.g., UI_UNEXPECTED_COLOR_SHIFT, AUTH_OAUTH_TIMEOUT).
+        
         Return ONLY a JSON object:
         {{
-          "normalized_slug": "CAPS_LOCK_SLUG (e.g. AUTH_LOGIN_FAIL, CHECKOUT_V3_HANG)",
-          "doc_reference": "Matching Section Title"
+          "normalized_slug": "CAPS_LOCK_SLUG",
+          "doc_reference": "Matching Section Title (or 'Dynamic Issue' if new)"
         }}
         """
 
