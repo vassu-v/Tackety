@@ -38,6 +38,15 @@ If you see 'database is locked', the SessionManager RLock is likely working, but
     print("Ingesting docs...")
     dp.ingest_document(company_doc, "company")
     dp.ingest_document(product_doc, "product")
+    
+    # NEW: Preprocess the company doc into a prompt-ready context file
+    company_context_path = os.path.join(data_dir, "company_context.txt")
+    dp.process_company_doc(company_doc, company_context_path)
+
+    # NEW: Preprocess the product doc for technical mapping
+    product_context_path = os.path.join(data_dir, "product_context.txt")
+    dp.process_product_doc(product_doc, product_context_path)
+    
     print("Setup complete.")
 
 if __name__ == "__main__":

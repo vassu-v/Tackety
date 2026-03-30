@@ -7,82 +7,86 @@ from engine.ai import call_ai
 
 class Chatbot:
     """
-    The Intelligence Layer of Tackety.
-    Handles natural conversation, state tracking, and ticket generation.
-    Stateless by design; reconstructs context from SessionManager on every turn.
-    Uses DocProcessor for RAG context retrieval from the company doc.
+    Intelligence layer that handles dual-mode responses:
+    1. Public Natural Chat for the customer.
+    2. Private JSON State for the engine (RESOLVING, RAISE_TICKET, ESCALATE_HUMAN).
+    
+    Uses Hybrid Context: 
+    - Full company/customer management rules (preprocessed) 
+    - RAG retrieval for technical product details.
     """
-
-    def __init__(self, session_manager: SessionManager, doc_processor: DocProcessor):
+    
+    def __init__(self, session_manager: SessionManager, doc_processor: DocProcessor, company_context: str = ""):
         self.sm = session_manager
         self.doc_processor = doc_processor
-        self.system_prompt_template = (
-            "You are an expert customer support agent for our software product.\n"
-            "Goal: Be helpful, concise, and professional.\n\n"
-            "COMPANY KNOWLEDGE (Use this to answer questions):\n"
-            "{company_context}\n\n"
-            "MANDATORY Response Format (Strict JSON):\n"
-            "{{\n"
-            "  \"response\": \"Your natural message to the customer\",\n"
-            "  \"state\": \"RESOLVING\" | \"ESCALATE_HUMAN\" | \"RAISE_TICKET\",\n"
-            "  \"confidence\": 0.9,\n"
-            "  \"collected\": {{\n"
-            "    \"issue_summary\": \"Short summary of the issue so far\",\n"
-            "    \"issue_type\": \"technical\" | \"customer_service\"\n"
-            "  }}\n"
-            "}}\n\n"
-            "States:\n"
-            "- RESOLVING: Use this while gathering info, answering questions, or troubleshooting.\n"
-            "- ESCALATE_HUMAN: Use this if the issue is about billing, accounts, or complex policies.\n"
-            "- RAISE_TICKET: Use this if the issue is a technical bug, crash, or data problem.\n\n"
-            "Tone: Short, friendly, and conversational in the 'response' field. No long paragraphs."
-        )
+        self.company_context = company_context
 
     def handle_message(self, session_id: str, message: str, customer_email: Optional[str] = None) -> Dict[str, Any]:
         """
-        Processes a user message, performs RAG retrieval, and returns the structured AI response.
+        Processes a user message using hybrid context (Full rules + RAG product docs).
         """
         # 1. Update email if provided
         if customer_email:
             self.sm.update_email(session_id, customer_email)
 
-        # 2. Store the user's message
-        self.sm.add_message(session_id, "user", message)
-
-        # 3. Get full history for context
-        history = self.sm.get_history(session_id)
-        
-        # 4. Build conversation context
-        context = ""
+        # 2. Get conversation history
+        history = self.sm.get_history(session_id, limit=10)
+        history_str = ""
         for m in history:
             role = "Customer" if m['role'] == "user" else "Assistant"
-            context += f"{role}: {m['content']}\n"
-            
-        # 5. Retrieve RAG context from doc_processor (using the latest message as the query)
-        rag_results = self.doc_processor.retrieve_context(message, doc_type="company", limit=3)
-        company_context = ""
-        for r in rag_results:
-            company_context += f"--- {r['section_title']} ---\n{r['content']}\n\n"
-            
-        if not company_context.strip():
-            company_context = "No specific company knowledge found for this query."
-            
-        system_prompt = self.system_prompt_template.format(company_context=company_context)
+            history_str += f"{role}: {m['content']}\n"
         
-        # 6. Call the AI
-        raw_ai_response = call_ai(
-            prompt=context,
+        # 3. Retrieve Product RAG context (Scalable for large technical docs)
+        product_results = self.doc_processor.retrieve_context(message, doc_type="product", limit=2)
+        product_context_str = "\n".join([r["content"] for r in product_results])
+
+        # 4. Assemble the Hybrid Prompt
+        system_prompt = f"""
+You are the Tackety Support Engine. You provide technical help and resolve issues.
+
+## COMPANY POLICIES & CUSTOMER MANAGEMENT (Mandatory Rules):
+{self.company_context if self.company_context else "Default policies apply."}
+
+## PRODUCT TECHNICAL KNOWLEDGE (Retrieved Context):
+{product_context_str if product_context_str else "Refer to general technical best practices."}
+
+## Operational Instructions:
+- Mode 1 (Response): Provide a short, empathetic, professional response to the customer.
+- Mode 2 (JSON State): You MUST append a JSON block at the end of your response.
+  States:
+  - RESOLVING: Default. Chatting normally and helping.
+  - RESOLVED: Use ONLY if the query is fully answered and no ticket is needed.
+  - RAISE_TICKET: Use for MUST-TRACK tasks. ALWAYS use this for technical BUGS, CRASHES, or SERVER ERRORS that you cannot fix. Set 'is_technical' accordingly.
+  - ESCALATE_HUMAN: Use for complex handoffs or explicit human requests.
+
+JSON Format:
+{{
+  "state": "RESOLVING" | "RESOLVED" | "RAISE_TICKET" | "ESCALATE_HUMAN",
+  "confidence": 0.9,
+  "collected": {{
+    "issue_summary": "Short 1-sentence summary",
+    "is_technical": true | false,
+    "issue_type": "bug" | "billing" | "refund" | "feature_request",
+    "customer_email": "{customer_email if customer_email else 'null'}"
+  }}
+}}
+"""
+        
+        # 5. Call AI
+        response_text = call_ai(
+            prompt=f"{history_str}\nCustomer: {message}",
             system_prompt=system_prompt
         )
 
-        # 7. Parse structured response
-        parsed = self._parse_structured_response(raw_ai_response)
+        # 6. Parse structured response
+        parsed = self._parse_structured_response(response_text)
         
-        # 8. Store the assistant's natural response
-        self.sm.add_message(session_id, "assistant", parsed['response'])
+        # 7. Store interaction in history
+        self.sm.add_message(session_id, "user", message)
+        self.sm.add_message(session_id, "assistant", parsed.get('response', ''))
         
-        # 9. Update session status in DB if state changed
-        if parsed['state'] != "RESOLVING":
+        # 8. Update session status in DB if state changed
+        if parsed.get('state') != "RESOLVING":
             self.sm.close_session(session_id, status=parsed['state'].lower())
             
         return parsed
@@ -93,7 +97,11 @@ class Chatbot:
             # Look for the JSON block
             match = re.search(r'\{.*\}', raw_text, re.DOTALL)
             if match:
-                return json.loads(match.group(0))
+                data = json.loads(match.group(0))
+                # Ensure it has a response field if AI put it outside JSON
+                if "response" not in data:
+                     data["response"] = raw_text.replace(match.group(0), "").strip()
+                return data
             
             # Fallback if no JSON found
             return {
@@ -102,7 +110,6 @@ class Chatbot:
                 "collected": {}
             }
         except Exception:
-            # Last resort fallback
             return {
                 "response": "I'm having trouble processing your request. Could you try again?",
                 "state": "RESOLVING",

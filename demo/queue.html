@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tackety // Intelligence Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #09090B;
+            --bg-secondary: #18181B;
+            --border: #27272A;
+            --text-primary: #FAFAFA;
+            --text-secondary: #A1A1AA;
+            --accent-tech: #06B6D4;
+            --accent-support: #F59E0B;
+            --accent-danger: #EF4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        header {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 500;
+            letter-spacing: -0.05em;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #22C55E;
+            border-radius: 50%;
+            box-shadow: 0 0 12px rgba(34, 197, 94, 0.4);
+        }
+
+        main {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+
+        .column {
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .column:last-child {
+            border-right: none;
+        }
+
+        .column-header {
+            padding: 1.25rem 1.5rem;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .column-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .count-badge {
+            background: var(--border);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-primary);
+        }
+
+        .scroll-area {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* Technical Cards */
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+
+        .card:hover {
+            border-color: #3F3F46;
+        }
+
+        .card-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .slug {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--accent-tech);
+        }
+
+        .urgency {
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 0.2rem 0.4rem;
+            border-radius: 2px;
+        }
+
+        .urgency-NORMAL { color: var(--text-secondary); background: rgba(161, 161, 170, 0.1); }
+        .urgency-URGENT { color: var(--accent-support); background: rgba(245, 158, 11, 0.1); }
+        .urgency-CRITICAL { color: var(--accent-danger); background: rgba(239, 68, 68, 0.1); }
+
+        .card-body {
+            padding: 1.25rem;
+        }
+
+        .summary {
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-bottom: 1rem;
+        }
+
+        .metadata-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+            font-size: 0.75rem;
+        }
+
+        .meta-item {
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .meta-value {
+            color: var(--text-primary);
+            margin-top: 0.25rem;
+        }
+
+        .ticket-list {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .ticket-row {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            display: flex;
+            gap: 1rem;
+        }
+
+        /* Support Cards */
+        .support-card .slug {
+            color: var(--accent-support);
+        }
+
+        .sid { color: var(--text-secondary); }
+
+        /* Animation */
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .pulse {
+            animation: pulse 2s infinite ease-in-out;
+        }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">
+        TACKETY // ENGINE
+        <span class="status-dot"></span>
+        <span style="font-size: 0.7rem; color: var(--text-secondary); font-family: 'Inter', sans-serif;">LIVE FLOW</span>
+    </div>
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-secondary);">
+        v.0.1.0-alpha
+    </div>
+</header>
+
+<main>
+    <!-- Technical Column -->
+    <div class="column">
+        <div class="column-header">
+            <div class="column-title">Intelligence Intelligence (Technical Clusters)</div>
+            <div id="tech-count" class="count-badge">0</div>
+        </div>
+        <div id="tech-list" class="scroll-area">
+            <!-- Technical Clusters Injected Here -->
+        </div>
+    </div>
+
+    <!-- Support Column -->
+    <div class="column">
+        <div class="column-header">
+            <div class="column-title">Support Hub (Non-Technical Cases)</div>
+            <div id="support-count" class="count-badge">0</div>
+        </div>
+        <div id="support-list" class="scroll-area">
+            <!-- Non-Technical Tickets Injected Here -->
+        </div>
+    </div>
+</main>
+
+<script>
+    async function updateDashboard() {
+        try {
+            const response = await fetch('/support/queue');
+            const data = await response.json();
+
+            renderTechnical(data.technical_clusters);
+            renderSupport(data.support_cases);
+        } catch (error) {
+            console.error("Dashboard update failed:", error);
+        }
+    }
+
+    function renderTechnical(clusters) {
+        const list = document.getElementById('tech-list');
+        document.getElementById('tech-count').innerText = clusters.length;
+        
+        list.innerHTML = clusters.map(c => `
+            <div class="card">
+                <div class="card-header">
+                    <span class="slug">${c.issue_slug}</span>
+                    <span class="urgency urgency-${c.urgency}">${c.urgency}</span>
+                </div>
+                <div class="card-body">
+                    <div class="summary">${c.summary}</div>
+                    <div class="metadata-grid">
+                        <div class="meta-item">
+                            WEIGHT
+                            <div class="meta-value">${c.weight} reports</div>
+                        </div>
+                        <div class="meta-item">
+                            CATEGORY
+                            <div class="meta-value">${c.category}</div>
+                        </div>
+                    </div>
+                    <div class="ticket-list">
+                        ${c.tickets.map(t => `
+                            <div class="ticket-row">
+                                <span class="sid">SID: ${t.session_id.slice(0,8)}</span>
+                                <span>${new Date(t.created_at).toLocaleTimeString()}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderSupport(cases) {
+        const list = document.getElementById('support-list');
+        const allItems = [...cases.NON_TECHNICAL_TICKETS, ...cases.CHAT_HANDOVERS];
+        document.getElementById('support-count').innerText = allItems.length;
+
+        list.innerHTML = allItems.map(c => `
+            <div class="card support-card">
+                <div class="card-header">
+                    <span class="slug">${c.case_type}</span>
+                    <span class="urgency urgency-NORMAL">PENDING</span>
+                </div>
+                <div class="card-body">
+                    <div class="summary">${c.summary}</div>
+                    <div class="metadata-grid">
+                        <div class="meta-item">
+                            SESSION ID
+                            <div class="meta-value">${c.session_id.slice(0,16)}...</div>
+                        </div>
+                        <div class="meta-item">
+                            TIMESTAMP
+                            <div class="meta-value">${new Date(c.created_at).toLocaleTimeString()}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    setInterval(updateDashboard, 5000);
+    updateDashboard();
+</script>
+
+</body>
+</html>

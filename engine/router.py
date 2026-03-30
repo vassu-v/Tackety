@@ -1,36 +1,91 @@
-from typing import Dict, Any
+import uuid
+from typing import Dict, Any, Optional
+from engine.normalizer import Normalizer
+from engine.human_queue import SupportHub
+from engine.issue_engine import IssueEngine
+from engine.webhooks import Webhooks
+from engine.doc_processor import DocProcessor
 
 class Router:
     """
-    Premature version of the Handoff Hub.
-    Accepts the hidden JSON emitted by the Chatbot layer.
-    Lays the groundwork for the future Normalizer and Human Queue integrations.
+    The Orchestration Hub for Issue Routing.
+    Coordinates the transition from Chatbot Decisions to specialized Processing Engines.
+    
+    Path 1: RESOLVED -> No action.
+    Path 2: Technical -> Normalizer -> Issue Engine -> issues.db.
+    Path 3: Non-Technical -> Support Hub (Ticket) -> support.db.
+    Path 4: Handover -> Support Hub (Session) -> support.db.
     """
     
-    def __init__(self):
-        # In the future, this will take instances of Normalizer and HumanQueue
-        pass
+    def __init__(self, normalizer: Normalizer, support_hub: SupportHub, issue_engine: IssueEngine, webhooks: Webhooks, doc_processor: DocProcessor):
+        self.normalizer = normalizer
+        self.support_hub = support_hub
+        self.issue_engine = issue_engine
+        self.webhooks = webhooks
+        self.doc_processor = doc_processor
         
     def route_decision(self, session_id: str, chatbot_json: Dict[str, Any]):
         """
-        Receives the structural output from the Chatbot and decides the next step.
+        Main routing entry point. Directs based on state and technical flags.
         """
         state = chatbot_json.get("state", "RESOLVING")
+        collected = chatbot_json.get("collected", {})
         
-        if state == "RESOLVING":
-            # The chatbot is still handling the conversation. No routing needed.
+        # Path 1: Active resolving or final resolved success
+        if state in ["RESOLVING", "RESOLVED"]:
             return
             
-        print(f"\n[ROUTER] [STATE] Session {session_id} changed to: {state}")
+        print(f"\n[ROUTER] Orchestrating Heart for Session {session_id} (State: {state})")
         
-        collected = chatbot_json.get("collected", {})
-        if collected:
-             print(f"[ROUTER] [INFO] Collected: {collected}")
-             
+        summary = collected.get("issue_summary", "No summary provided")
+        is_technical = collected.get("is_technical", False)
+        
+        # Path 2 & 3: Raising structured tickets
         if state == "RAISE_TICKET":
-            print(f"[ROUTER] -> Deferring to FUTURE Normalizer queue...")
-            # Future: normalizer.process(collected['issue_summary'])
-            
+            if is_technical:
+                # Engineering Pipeline
+                print(f"[ROUTER] Directing technical issue to Intelligence Engine.")
+                
+                # 1. Terminology Mapping (Terminology only, no classification)
+                mapping = self.normalizer.normalize(summary)
+                
+                # 2. Embedding for Clustering
+                # We reuse the doc_processor to generate the same vector type
+                model = self.doc_processor._get_model()
+                embedding = model.encode(summary).tolist()
+                
+                # 3. Process through Issue Engine (Clustering/Weights)
+                ticket_id = str(uuid.uuid4())
+                cluster_id = self.issue_engine.process_ticket(
+                    ticket_id=ticket_id,
+                    session_id=session_id,
+                    normalized_data=mapping,
+                    raw_summary=summary,
+                    embedding=embedding
+                )
+                
+                # 4. Notify
+                self.webhooks.dispatch_event("ticket.created", {
+                    "ticket_id": ticket_id,
+                    "cluster_id": cluster_id,
+                    "summary": summary,
+                    "slug": mapping["normalized_slug"],
+                    "session_id": session_id
+                })
+            else:
+                # Support Pipeline (Non-Technical Ticket)
+                print(f"[ROUTER] Directing non-technical issue to Support Hub.")
+                self.support_hub.enqueue_ticket(session_id, summary)
+                self.webhooks.dispatch_event("support.ticket_raised", {
+                    "session_id": session_id,
+                    "summary": summary
+                })
+                
+        # Path 4: Direct Handover
         elif state == "ESCALATE_HUMAN":
-            print(f"[ROUTER] -> Deferring to FUTURE Human agent queue...")
-            # Future: human_queue.enqueue(session_id, collected)
+             print(f"[ROUTER] Escalating Active Session {session_id} to Human Agent.")
+             self.support_hub.enqueue_handover(session_id, summary)
+             self.webhooks.dispatch_event("handoff.initiated", {
+                 "session_id": session_id,
+                 "summary": summary
+             })

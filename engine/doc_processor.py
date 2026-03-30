@@ -3,6 +3,7 @@ import sqlite_vec
 import struct
 from typing import List, Dict, Optional
 import os
+from engine.ai import call_ai
 
 try:
     from sentence_transformers import SentenceTransformer
@@ -171,6 +172,57 @@ class DocProcessor:
         results = [dict(row) for row in rows]
         conn.close()
         return results
+
+    def process_company_doc(self, text: str, output_path: str) -> str:
+        """
+        Preprocesses (cleans/summarizes) the company doc using AI 
+        and saves it to a plain text file for prompt injection.
+        """
+        print(f"Preprocessing company doc for prompt injection...")
+        system_prompt = (
+            "You are a document preprocessor for a customer support engine. "
+            "Your job is to take raw company internal documents and convert them into a 'Support Prompt Context'.\n"
+            "Rules:\n"
+            "1. Focus heavily on POLIDIES, REFUNDS, ESCALATION RULES, and PRICING.\n"
+            "2. Keep it dense and keyword-rich.\n"
+            "3. Remove fluff and conversational filler.\n"
+            "4. Format it for an AI System Prompt."
+        )
+        
+        preprocessed_text = call_ai(prompt=text, system_prompt=system_prompt)
+        
+        # Ensure the directory exists
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(preprocessed_text)
+            
+        print(f"Company context saved to {output_path}")
+        return preprocessed_text
+
+    def process_product_doc(self, text: str, output_path: str) -> str:
+        """
+        Specialized preprocessing for the product doc (Terminology Mapping).
+        Focuses on extracting technical IDs, slugs, and specific feature names.
+        """
+        print(f"Preprocessing product doc for terminology mapping...")
+        system_prompt = (
+            "You are a technical document preprocessor. "
+            "Your job is to take a product manual and extract a 'Technical Terminology Map'.\n"
+            "Rules:\n"
+            "1. Extract specific FEATURE SLUGS (e.g. AUTH_JWT, CHECKOUT_V3).\n"
+            "2. Identify technical modules and their responsibilities.\n"
+            "3. Format it as a clear key-value reference for an LLM to use as a mapping anchor."
+        )
+        
+        preprocessed_text = call_ai(prompt=text, system_prompt=system_prompt)
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(preprocessed_text)
+            
+        print(f"Product map saved to {output_path}")
+        return preprocessed_text
 
     def clear_docs(self, doc_type: str):
         """Clears all embeddings for a specific doc type."""

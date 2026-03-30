@@ -16,6 +16,10 @@ from engine.session_manager import SessionManager
 from engine.doc_processor import DocProcessor
 from engine.chatbot import Chatbot
 from engine.router import Router
+from engine.normalizer import Normalizer
+from engine.human_queue import SupportHub
+from engine.issue_engine import IssueEngine
+from engine.webhooks import Webhooks
 
 # ── App Setup ──────────────────────────────────────────────────────────
 
@@ -29,14 +33,48 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Database lives inside the engine/data/ directory for standalone operation
+# ── Component Initialization ──────────────────────────────────────────
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
+# 1. Base Storage & Retrieval
 sm = SessionManager(db_path=os.path.join(DATA_DIR, "conversations.db"))
 doc_processor = DocProcessor(db_path=os.path.join(DATA_DIR, "knowledge.db"))
-chatbot = Chatbot(sm, doc_processor)
-router = Router()
+
+# 2. Hybrid Context Pre-loading (Rules In-Full)
+company_context = ""
+context_path = os.path.join(DATA_DIR, "company_context.txt")
+try:
+    if os.path.exists(context_path):
+        with open(context_path, "r", encoding="utf-8") as f:
+            company_context = f.read()
+            print(f"Loaded {len(company_context)} chars of preprocessed company rules.")
+    else:
+        print("WARNING: No preprocessed company context found. Run setup_docs.py first.")
+except Exception as e:
+    print(f"Error loading company context: {e}")
+
+product_context = ""
+product_context_path = os.path.join(DATA_DIR, "product_context.txt")
+try:
+    if os.path.exists(product_context_path):
+        with open(product_context_path, "r", encoding="utf-8") as f:
+            product_context = f.read()
+            print(f"Loaded {len(product_context)} chars of product terminology map.")
+    else:
+        print("WARNING: No product terminology map found. Run setup_docs.py first.")
+except Exception as e:
+    print(f"Error loading product context: {e}")
+
+# 3. Decision & Handoff Components (Dependency Injection)
+normalizer = Normalizer(doc_processor, product_context=product_context)
+support_hub = SupportHub(db_path=os.path.join(DATA_DIR, "support.db"))
+issue_engine = IssueEngine(db_path=os.path.join(DATA_DIR, "issues.db"))
+webhooks = Webhooks()
+
+# 4. Intelligence Hubs
+chatbot = Chatbot(sm, doc_processor, company_context=company_context)
+router = Router(normalizer, support_hub, issue_engine, webhooks, doc_processor)
 
 # ── Request/Response Models ────────────────────────────────────────────
 
@@ -101,11 +139,34 @@ def get_session_history(session_id: str):
     return {"messages": history}
 
 
+@app.get("/support/queue")
+def get_support_queue():
+    """
+    Returns the unified support and intelligence status.
+    Technicals are grouped by the IssueEngine (clusters).
+    Non-technicals and handovers are listed by the SupportHub.
+    """
+    return {
+        "technical_clusters": issue_engine.get_ranked_clusters(),
+        "support_cases": support_hub.get_open_cases()
+    }
+
+
 
 @app.get("/health")
 def health_check():
     """Simple health check endpoint."""
     return {"status": "ok", "version": "0.1.0"}
+
+
+# ── Static Demo Routes ───────────────────────────────────────────────
+
+DEMO_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "demo")
+if os.path.exists(DEMO_DIR):
+    app.mount("/demo", StaticFiles(directory=DEMO_DIR), name="demo")
+    print(f"Mounted demo dashboard at http://localhost:8000/demo/queue.html")
+else:
+    print(f"WARNING: Demo directory not found at {DEMO_DIR}")
 
 
 # ── Run Server ─────────────────────────────────────────────────────────
