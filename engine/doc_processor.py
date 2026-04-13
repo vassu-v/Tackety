@@ -20,9 +20,18 @@ class DocProcessor:
 
     def __init__(self, db_path: str = "knowledge.db", model_name: str = "all-MiniLM-L6-v2"):
         self.db_path = db_path
-        self._init_db()
         self.model_name = model_name
         self._model = None
+        self.embedding_dim = 384
+        
+        if SentenceTransformer is not None:
+            try:
+                model = self._get_model()
+                self.embedding_dim = model.get_sentence_embedding_dimension()
+            except Exception:
+                pass
+                
+        self._init_db()
 
     def _get_model(self):
         if self._model is None and SentenceTransformer is not None:
@@ -53,12 +62,12 @@ class DocProcessor:
             )
         ''')
         
-        # Create vec table holding the embeddings (384 dims for all-MiniLM-L6-v2)
+        # Create vec table holding the embeddings
         # We store rowid linking to docs_content.id
-        conn.execute('''
+        conn.execute(f'''
             CREATE VIRTUAL TABLE IF NOT EXISTS vec_docs USING vec0(
                 rowid INTEGER PRIMARY KEY,
-                embedding float[384]
+                embedding float[{self.embedding_dim}]
             )
         ''')
         conn.commit()
@@ -70,6 +79,11 @@ class DocProcessor:
 
     def _chunk_text(self, text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]:
         """Simple token/character-based chunking as a fallback."""
+        if chunk_size <= 0:
+            raise ValueError("chunk_size must be greater than 0")
+        if overlap < 0 or overlap >= chunk_size:
+            raise ValueError("overlap must be >= 0 and < chunk_size")
+            
         # For a real system, recursive character text splitting or heading-based splitting is better.
         # This is a basic implementation for now.
         words = text.split()
@@ -137,6 +151,8 @@ class DocProcessor:
             
             # 2. Generate embedding
             embedding = model.encode(chunk["content"]).tolist()
+            if len(embedding) != self.embedding_dim:
+                raise ValueError(f"Embedding dimension mismatch. Expected {self.embedding_dim}, got {len(embedding)}")
             
             # 3. Insert vector
             conn.execute(
@@ -153,6 +169,8 @@ class DocProcessor:
         """
         model = self._get_model()
         query_embedding = model.encode(query).tolist()
+        if len(query_embedding) != self.embedding_dim:
+            raise ValueError(f"Embedding dimension mismatch. Expected {self.embedding_dim}, got {len(query_embedding)}")
         query_vec = self.serialize_f32(query_embedding)
         
         conn = self._get_conn()
@@ -193,7 +211,9 @@ class DocProcessor:
         preprocessed_text = call_ai(prompt=text, system_prompt=system_prompt)
         
         # Ensure the directory exists
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        dirpath = os.path.dirname(output_path)
+        if dirpath:
+            os.makedirs(dirpath, exist_ok=True)
         
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(preprocessed_text)
@@ -217,7 +237,9 @@ class DocProcessor:
         )
         
         preprocessed_text = call_ai(prompt=text, system_prompt=system_prompt)
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        dirpath = os.path.dirname(output_path)
+        if dirpath:
+            os.makedirs(dirpath, exist_ok=True)
         
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(preprocessed_text)
@@ -242,7 +264,9 @@ class DocProcessor:
         )
         
         preprocessed_text = call_ai(prompt=text, system_prompt=system_prompt)
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        dirpath = os.path.dirname(output_path)
+        if dirpath:
+            os.makedirs(dirpath, exist_ok=True)
         
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(preprocessed_text)

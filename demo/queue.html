@@ -253,6 +253,20 @@
 </main>
 
 <script>
+    function escapeHTML(str) {
+        if (!str) return '';
+        return String(str).replace(/[&<>'"]/g, match => {
+            const escapeMap = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                "'": '&#39;',
+                '"': '&quot;'
+            };
+            return escapeMap[match];
+        });
+    }
+
     async function updateDashboard() {
         try {
             const response = await fetch('/support/queue');
@@ -272,26 +286,26 @@
         list.innerHTML = clusters.map(c => `
             <div class="card">
                 <div class="card-header">
-                    <span class="slug">${c.issue_slug}</span>
-                    <span class="urgency urgency-${c.urgency}">${c.urgency}</span>
+                    <span class="slug">${escapeHTML(c.issue_slug)}</span>
+                    <span class="urgency urgency-${escapeHTML(c.urgency)}">${escapeHTML(c.urgency)}</span>
                 </div>
                 <div class="card-body">
-                    <div class="summary">${c.summary}</div>
+                    <div class="summary">${escapeHTML(c.summary)}</div>
                     <div class="metadata-grid">
                         <div class="meta-item">
                             WEIGHT
-                            <div class="meta-value">${c.weight} reports</div>
+                            <div class="meta-value">${escapeHTML(c.weight)} reports</div>
                         </div>
                         <div class="meta-item">
                             CATEGORY
-                            <div class="meta-value">${c.category}</div>
+                            <div class="meta-value">${escapeHTML(c.category)}</div>
                         </div>
                     </div>
                     <div class="ticket-list">
                         ${c.tickets.map(t => `
                             <div class="ticket-row">
-                                <span class="sid">SID: ${t.session_id.slice(0,8)}</span>
-                                <span>${new Date(t.created_at).toLocaleTimeString()}</span>
+                                <span class="sid">SID: ${escapeHTML(t.session_id ? t.session_id.slice(0,8) : 'unknown')}</span>
+                                <span>${escapeHTML(new Date(t.created_at).toLocaleTimeString())}</span>
                             </div>
                         `).join('')}
                     </div>
@@ -308,19 +322,19 @@
         list.innerHTML = allItems.map(c => `
             <div class="card support-card">
                 <div class="card-header">
-                    <span class="slug">${c.case_type}</span>
+                    <span class="slug">${escapeHTML(c.case_type)}</span>
                     <span class="urgency urgency-NORMAL">PENDING</span>
                 </div>
                 <div class="card-body">
-                    <div class="summary">${c.summary}</div>
+                    <div class="summary">${escapeHTML(c.summary)}</div>
                     <div class="metadata-grid">
                         <div class="meta-item">
                             SESSION ID
-                            <div class="meta-value">${c.session_id.slice(0,16)}...</div>
+                            <div class="meta-value">${escapeHTML(c.session_id ? c.session_id.slice(0,16) : 'unknown')}...</div>
                         </div>
                         <div class="meta-item">
                             TIMESTAMP
-                            <div class="meta-value">${new Date(c.created_at).toLocaleTimeString()}</div>
+                            <div class="meta-value">${escapeHTML(new Date(c.created_at).toLocaleTimeString())}</div>
                         </div>
                     </div>
                 </div>

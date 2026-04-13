@@ -11,9 +11,10 @@ class IssueEngine:
     Tracks issue weight (volume) and auto-escalates urgency.
     """
 
-    def __init__(self, db_path: str = "issues.db", cluster_threshold: float = 0.75):
+    def __init__(self, db_path: str = "issues.db", cluster_threshold: float = 0.75, embedding_dim: int = 384):
         self.db_path = db_path
         self.cluster_threshold = cluster_threshold
+        self.embedding_dim = embedding_dim
         self._init_db()
 
     def _get_conn(self):
@@ -44,10 +45,10 @@ class IssueEngine:
         ''')
 
         # 2. Virtual Vector table for cluster similarity
-        conn.execute('''
+        conn.execute(f'''
             CREATE VIRTUAL TABLE IF NOT EXISTS vec_clusters USING vec0(
                 rowid INTEGER PRIMARY KEY,
-                embedding float[384]
+                embedding float[{self.embedding_dim}]
             )
         ''')
 
@@ -78,6 +79,9 @@ class IssueEngine:
         2. Updates or Creates.
         3. Persists ticket.
         """
+        if len(embedding) != self.embedding_dim:
+            raise ValueError(f"Embedding dimension mismatch. Expected {self.embedding_dim}, got {len(embedding)}")
+            
         conn = self._get_conn()
         slug = normalized_data.get("normalized_slug", "UNKNOWN")
         category = normalized_data.get("doc_reference", "General")

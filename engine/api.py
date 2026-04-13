@@ -81,7 +81,7 @@ except Exception as e:
 # 3. Decision & Handoff Components (Dependency Injection)
 normalizer = Normalizer(doc_processor, product_context=product_context)
 support_hub = SupportHub(db_path=os.path.join(DATA_DIR, "support.db"))
-issue_engine = IssueEngine(db_path=os.path.join(DATA_DIR, "issues.db"))
+issue_engine = IssueEngine(db_path=os.path.join(DATA_DIR, "issues.db"), embedding_dim=doc_processor.embedding_dim)
 webhooks = Webhooks()
 
 # 4. Intelligence Hubs
