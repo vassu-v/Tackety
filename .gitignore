@@ -2,3 +2,4 @@
 engine/.env
 __pycache__/
 engine/data/
+*.db

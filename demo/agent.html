@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tackety — Agent Workspace</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #09090b;
+            --bg-panel: #18181b;
+            --border: #27272a;
+            --text-main: #f4f4f5;
+            --text-muted: #a1a1aa;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --font-ui: 'Inter', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        body {
+            font-family: var(--font-ui);
+            background: var(--bg-base);
+            color: var(--text-main);
+            margin: 0;
+            padding: 32px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 24px;
+            margin-bottom: 32px;
+        }
+
+        .title {
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .column {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--border);
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .col-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            font-family: var(--font-mono);
+            font-size: 13px;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .ticket-list {
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .ticket-card {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 16px;
+        }
+
+        .t-head {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .t-summary {
+            font-size: 15px;
+            line-height: 1.5;
+            margin-bottom: 16px;
+        }
+
+        .t-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        button {
+            background: var(--text-main);
+            color: #000;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        button.outline {
+            background: transparent;
+            color: var(--text-main);
+            border: 1px solid var(--border);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="title">
+            <div style="width: 8px; height: 8px; background: var(--warning); border-radius: 50%;"></div>
+            TACKETY // AGENT WORKSPACE
+        </div>
+        <div style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">v.0.1.0-alpha</div>
+    </header>
+
+    <div class="dashboard-grid">
+        <div class="column">
+            <div class="col-header">
+                <span>NON-TECHNICAL TICKETS</span>
+                <span id="t-count">0</span>
+            </div>
+            <div class="ticket-list" id="ticket-queue">
+                <!-- Dynamically populated -->
+            </div>
+        </div>
+
+        <div class="column">
+            <div class="col-header">
+                <span style="color: var(--warning);">LIVE HANDOVERS</span>
+                <span id="h-count">0</span>
+            </div>
+            <div class="ticket-list" id="handover-queue">
+                 <!-- Dynamically populated -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function loadQueue() {
+            try {
+                const res = await fetch('http://localhost:8000/support/queue');
+                const data = await res.json();
+                
+                const supportCases = data.support_cases || {};
+                const tickets = supportCases.NON_TECHNICAL_TICKETS || [];
+                const handovers = supportCases.CHAT_HANDOVERS || [];
+
+                document.getElementById('t-count').textContent = tickets.length;
+                document.getElementById('h-count').textContent = handovers.length;
+
+                renderList('ticket-queue', tickets, 'Resolve Ticket');
+                renderList('handover-queue', handovers, 'Take Over Console');
+
+            } catch (e) {
+                console.error('Failed to load queue', e);
+            }
+        }
+
+        function renderList(elementId, items, actionText) {
+            const container = document.getElementById(elementId);
+            container.innerHTML = items.length === 0 ? '<div style="color: #52525b; text-align: center; margin-top: 40px; font-family: monospace;">QUEUE EMPTY</div>' : '';
+            
+            items.forEach(item => {
+                const sid = item.session_id.substring(0, 8);
+                const html = `
+                    <div class="ticket-card">
+                        <div class="t-head">
+                            <span>SID: ${sid}</span>
+                            <span>${new Date(item.timestamp).toLocaleTimeString()}</span>
+                        </div>
+                        <div class="t-summary">${item.summary}</div>
+                        <div class="t-actions">
+                            <button>${actionText}</button>
+                            <button class="outline">View Context</button>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += html;
+            });
+        }
+
+        loadQueue();
+        setInterval(loadQueue, 5000); // Poll every 5 seconds
+    </script>
+</body>
+</html>

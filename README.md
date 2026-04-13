@@ -1,80 +1,173 @@
 <div align="center">
-  <img src="tackety.png" alt="Tackety" width="200"/>
+  <img src="tackety.png" alt="Tackety" width="180"/>
   <h1>Tackety</h1>
   <p><strong>The Developer-First Issue Clustering & Support Engine</strong></p>
 
   [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-  [![Python version](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
-  [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/)
+  [![Python](https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white)](https://www.python.org/downloads/)
+  [![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+  [![SQLite](https://img.shields.io/badge/SQLite-portable-003B57?logo=sqlite&logoColor=white)](https://sqlite.org/)
+  [![Status](https://img.shields.io/badge/status-active%20development-orange)]()
+  [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
+
 </div>
 
 ---
 
-**Tackety** is an open-source, self-hostable complaint management and issue clustering system designed for developers at small-to-mid-sized SaaS teams. 
+**Tackety** is an open-source, self-hostable support engine that sits between your customers and your developers. It clusters semantically similar issues, translates customer language into internal product terminology, and tells your team what to fix first — ranked by real impact, not arrival time. No Zendesk. No vendor lock-in. One portable SQLite file.
 
-It acts as an intelligent bridge between customer support and developer workflows by transforming raw user feedback into prioritized, semantically grouped technical tickets. Instead of support tickets piling up in a strict First-In, First-Out (FIFO) queue, Tackety analyzes the impact, extracts the technical context, and tells you what to fix first.
+---
 
-## 🌟 Why Tackety?
+## 🌟 The Problem
 
-Most support systems operate blindly. A minor cosmetic glitch reported on Monday gets fixed before a critical checkout crash reported on Tuesday simply because it arrived earlier. The developer isn't lazy; the system just provides zero signal about priority.
+Most support systems operate blindly. A minor cosmetic glitch reported on Monday gets fixed before a critical checkout crash reported on Tuesday — simply because it arrived earlier. The developer isn't lazy. The system provides zero signal about what actually matters.
 
 **Tackety solves this by:**
-1. Automatically translating customer terminology into internal product modules via your own documentation.
-2. Clustering similar issues using vector similarity search.
-3. Escalating urgency based on actual support volume and impact.
+1. Running a customer-facing AI chatbot that classifies issues on the fly — technical bug or customer service request.
+2. Translating raw customer language into internal product terminology using your own docs.
+3. Clustering similar issues semantically and escalating urgency based on real volume.
+
+---
+
+## ⚡ Current State
+
+The core engine is **working and runnable today.**
+
+| Component | Status |
+|-----------|--------|
+| Session management (lazy TTL cleanup) | ✅ Done |
+| Stateless AI integration (`call_ai.py`) | ✅ Done |
+| Conversation history reconstruction | ✅ Done |
+| FastAPI backend + session endpoints | ✅ Done |
+| Terminal-style demo UI with engine stream | ✅ Done |
+| Chatbot with RAG + state classification | ✅ Done |
+| Normalizer (customer → product terminology) | 🔲 In development |
+| Human agent queue (least-loaded allocation) | 🔲 In development |
+| Webhook system (HMAC-signed events) | 🔲 In development |
+| Issue clustering integration | 🔲 In development |
+| Developer dashboard endpoints | 🔲 In development |
+
+> You can run the demo today. The remaining components are actively being built. Read [`DESIGN.md`](./DESIGN.md) to understand the full architecture and roadmap.
+
+---
 
 ## 🚀 Core Features
 
-- **Automated Issue Routing:** The engine acts as the first line of defense. It converses with users and classifies incoming complaints as either *customer service* (refunds, billing) or *technical issues* (bugs, crashes) on the fly.
-- **Intelligent Normalization:** Translates wildly varied customer descriptions (e.g., "cart is broken", "cannot add items") into standardized developer terminology (e.g., "Checkout Module") using vector embeddings of your product docs.
-- **Semantic Clustering:** Groups identical issues using lightweight vector text embeddings (`sqlite-vec`), extracting real signal from infinite noise. Weight accumulates on the right cluster.
-- **Stateless AI Architecture:** No massive, bloated databases. The LLM has no memory between calls. The conversation history is completely reconstructed from highly portable, decoupled SQLite databases.
-- **Swappable AI Backend:** BYO Model. Pre-configured for speed and intelligence via modern SDKs, but requires changing only one file (`call_ai.py`) to run entirely locally via Ollama or vLLM.
-- **Webhook Integration (BYO Notification Stack):** Tackety fires secure webhooks on ticket creation, human handoff, and resolution. Connect it to your existing Slack, Email SDK, or PagerDuty stack. No vendor lock-in.
+- **Automated Issue Routing** — Converses with users and classifies complaints as *customer service* (refunds, billing) or *technical issues* (bugs, crashes) in real time.
+- **Intelligent Normalization** — Translates varied customer descriptions ("cart is broken", "cannot add items") into standardized developer terminology ("Checkout Module") using vector embeddings of your product docs.
+- **Semantic Clustering** — Groups identical issues using lightweight vector embeddings via `sqlite-vec`. Weight accumulates on the right cluster. Urgency escalates automatically.
+- **Stateless AI Architecture** — The LLM has no memory between calls. Conversation history is reconstructed from portable SQLite databases on every turn. No bloat, no lock-in.
+- **Swappable AI Backend** — Change your AI provider by editing exactly one file (`call_ai.py`). Run locally via Ollama or use any cloud provider. Nothing else in the codebase changes.
+- **Webhook Integration** — Tackety fires HMAC-signed webhooks on ticket creation, human handoff, and resolution. Connect your own Slack, email SDK, or PagerDuty stack. No vendor bundled.
 
-## 🏗️ Project Architecture
+---
 
-Tackety is modularized to ensure strict separation of concerns:
+## 🏗️ Architecture
 
-- **[`/engine`](./engine)** — The Core Backend. Contains the FastAPI logic, the swappable AI brain, vector search functions, and the state-management databases (`conversations.db`, `issues.db`, `support.db`).
-- **[`/demo`](./demo)** — The Client Interface. A sleek, terminal-inspired frontend interface demonstrating the client-side interaction with the Tackety engine. It visualizes the internal JSON logs, routing states, and ticket dispatches in real-time.
-- **[`DESIGN.md`](./DESIGN.md)** — The complete architectural blueprint. If you want to know *why* we chose three separate SQLite databases instead of one, or why the Normalizer uses a specific similarity threshold, read this.
+Tackety is built around strict separation of concerns. Each component has exactly one job.
 
-## 🛠️ Quick Start Guide
-
-Tackety is designed to be configured and run rapidly with minimal overhead. 
-
-### 1. Prerequisites
-- Python 3.10+
-- The required AI python SDK and `fastapi` stack.
-
-### 2. Setup the Engine
-Navigate to the engine directory and install requirements:
-```bash
-cd engine
-pip install fastapi uvicorn google-genai python-dotenv
+```
+Customer opens chat
+        │
+        ▼
+[conversations.db] ── session created
+        │
+        ▼
+chatbot.py ── RAG context + conversation loop
+  ├─ RESOLVED       → session closes
+  ├─ ESCALATE_HUMAN → human_queue → support.db → webhook: handoff.initiated
+  └─ RAISE_TICKET   → normalizer → issue_engine → issues.db → webhook: ticket.created
 ```
 
-### 3. Environment Variables
-Create a `.env` file in the `engine/` directory to authenticate your AI model:
+- **[`/engine`](./engine)** — Core backend. FastAPI, swappable AI caller, session management, vector search.
+- **[`/demo`](./demo)** — Terminal-style chat UI with live engine stream panel.
+- **[`DESIGN.md`](./DESIGN.md)** — Complete architectural blueprint. Every decision documented with reasoning and what was rejected.
+
+---
+
+## 🖥️ Demo
+
+After starting the server, open `demo/index.html` to see:
+- Terminal-style chat interface
+- Live engine stream logging on the left panel showing classifier state in real time
+- Ticket dispatch cards rendered inline when issues are routed
+
+---
+
+## 🛠️ Quick Start
+
+### 1. Prerequisites
+
+- Python 3.10+
+
+### 2. Install dependencies
+
+```bash
+cd engine
+pip install fastapi uvicorn google-genai python-dotenv sentence-transformers sqlite-vec
+```
+
+### 3. Environment variables
+
+Create a `.env` file in the `engine/` directory:
+
 ```env
 AI_API=your_api_key_here
 ```
 
-### 4. Run the Server
-Tackety's API ships with a baked-in runner. Start the FastAPI server on port 8000:
+### 4. Run the server
+
 ```bash
 python api.py
 ```
 
-*For more expansive endpoints, database specifics, and session tracking details, refer to the **[Engine Documentation](./engine/README.md)**.*
+Server starts at `http://localhost:8000`. Interactive API docs at `http://localhost:8000/docs`.
+
+### 5. Open the demo
+
+Open `demo/index.html` in your browser while the server is running.
+
+---
+
+## 🔌 Key Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/session/start` | Create a new conversation session |
+| `POST` | `/session/message` | Send a message, get AI response |
+| `GET` | `/session/{id}/history` | Retrieve full message history |
+| `GET` | `/health` | Health check |
+
+Full endpoint documentation in [`engine/README.md`](./engine/README.md).
+
+---
+
+## 🧠 Design Philosophy
+
+Tackety is built on a few non-negotiable principles:
+
+- **Stateless AI, stateful database** — The LLM reconstructs context from SQLite on every turn. No session stickiness, no memory leaks.
+- **Three separate databases** — `conversations.db` (ephemeral), `issues.db` (permanent developer records), `support.db` (agent-facing). Different owners, different lifetimes, no coupling.
+- **One swappable AI file** — `call_ai.py` is the only place an external AI API is ever called. Swap providers by editing one function.
+- **Webhooks, not bundled email** — Tackety fires signed POST events. You connect your own notification stack. No vendor lock-in by design.
+
+Read [`DESIGN.md`](./DESIGN.md) for the full reasoning behind every architectural decision.
+
+---
 
 ## 🤝 Contributing
 
-As a self-hostable, developer-first tool, community contributions to Tackety are highly welcomed. 
-- Please thoroughly read [`DESIGN.md`](./DESIGN.md) before proposing architecture changes, as many decisions (like the omission of a built-in email provider) are intentional features, not bugs.
-- Ensure your changes do not violate the decoupled nature of the engine, AI caller, and router.
+Contributions are welcome. Before opening a PR, read [`CONTRIBUTING.md`](./CONTRIBUTING.md) — many decisions in this codebase are intentional, not oversights.
+
+Key things to preserve:
+- Decoupled components (AI, router, databases are strictly separated)
+- Stateless AI architecture
+- SQLite-first approach
+- No bundled third-party notification providers
+
+---
 
 ## 📜 License
 
-This project is open-source and licensed under the AGPL v3 License - see the [LICENSE](LICENSE) file for details.
+AGPL v3 — see [LICENSE](./LICENSE) for details.
+

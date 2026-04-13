@@ -2,6 +2,7 @@ import sqlite3
 import uuid
 import os
 import threading
+from typing import List, Dict, Optional
 from datetime import datetime, timedelta
 
 
@@ -173,25 +174,36 @@ class SessionManager:
             )
             self.conn.commit()
 
-    def get_history(self, session_id):
+    def get_history(self, session_id, limit: Optional[int] = None):
         """
-        Fetches the full message history for a session, ordered chronologically.
-        This is what the chatbot uses to reconstruct conversation context.
-
+        Fetches the message history for a session, ordered chronologically.
+        
         Args:
             session_id: The UUID of the session.
+            limit: Optional number of most recent messages to retrieve.
 
         Returns:
             list[dict]: Messages in chronological order.
-                Each dict has: role, content, timestamp.
         """
+        query = "SELECT role, content, timestamp FROM messages WHERE session_id = ? ORDER BY timestamp ASC"
+        params = [session_id]
+        
+        if limit:
+            # To get most recent N but keep them in ASC order:
+            # We subquery to get latest records then sort them back.
+            query = f"""
+                SELECT role, content, timestamp FROM (
+                    SELECT role, content, timestamp FROM messages 
+                    WHERE session_id = ? 
+                    ORDER BY timestamp DESC 
+                    LIMIT ?
+                ) ORDER BY timestamp ASC
+            """
+            params.append(limit)
+
         with self._lock:
-            rows = self.conn.execute(
-                "SELECT role, content, timestamp FROM messages "
-                "WHERE session_id = ? ORDER BY timestamp ASC",
-                (session_id,)
-            ).fetchall()
-        return [dict(row) for row in rows]
+            rows = self.conn.execute(query, params).fetchall()
+        return [dict(r) for r in rows]
 
     # ── Lazy Cleanup ───────────────────────────────────────────────────
 

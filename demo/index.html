@@ -1,10 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tackety — Issue Engine</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
     <style>
         :root {
             --bg-base: #09090b;
@@ -23,7 +27,11 @@
             --font-mono: 'JetBrains Mono', monospace;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
         body {
             font-family: var(--font-ui);
@@ -81,18 +89,35 @@
             gap: 12px;
         }
 
-        .log-stream::-webkit-scrollbar { width: 4px; }
-        .log-stream::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        .log-stream::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .log-stream::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
 
         .log-entry {
             line-height: 1.5;
             word-break: break-all;
         }
-        
-        .log-entry.system { color: var(--text-code); }
-        .log-entry.success { color: var(--success); }
-        .log-entry.warning { color: var(--warning); }
-        .log-entry.highlight { color: var(--accent); }
+
+        .log-entry.system {
+            color: var(--text-code);
+        }
+
+        .log-entry.success {
+            color: var(--success);
+        }
+
+        .log-entry.warning {
+            color: var(--warning);
+        }
+
+        .log-entry.highlight {
+            color: var(--accent);
+        }
 
         /* Main Chat Area */
         .chat-container {
@@ -137,8 +162,14 @@
             gap: 24px;
         }
 
-        .chat-messages::-webkit-scrollbar { width: 4px; }
-        .chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        .chat-messages::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
 
         /* Messages */
         .message {
@@ -149,8 +180,15 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(4px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .message.user {
@@ -206,20 +244,25 @@
             font-size: 11px;
             letter-spacing: 0.05em;
         }
-        
+
         .ticket-card-row {
             display: flex;
             margin-bottom: 6px;
         }
-        
+
         .ticket-card-key {
             color: var(--text-muted);
             width: 140px;
             flex-shrink: 0;
         }
 
-        .ticket-card-val.string { color: var(--success); }
-        .ticket-card-val.number { color: var(--warning); }
+        .ticket-card-val.string {
+            color: var(--success);
+        }
+
+        .ticket-card-val.number {
+            color: var(--warning);
+        }
 
         /* Typing & Input */
         .typing-indicator {
@@ -237,7 +280,10 @@
             margin-bottom: 16px;
         }
 
-        .typing-indicator.active { display: block; }
+        .typing-indicator.active {
+            display: block;
+        }
+
         .blink-cursor {
             display: inline-block;
             width: 8px;
@@ -248,7 +294,11 @@
             animation: blink 1s step-end infinite;
         }
 
-        @keyframes blink { 50% { opacity: 0; } }
+        @keyframes blink {
+            50% {
+                opacity: 0;
+            }
+        }
 
         .chat-input-area {
             padding: 24px;
@@ -283,7 +333,9 @@
             padding: 12px 16px;
         }
 
-        .input-wrapper input::placeholder { color: var(--text-muted); }
+        .input-wrapper input::placeholder {
+            color: var(--text-muted);
+        }
 
         .send-btn {
             background: var(--text-main);
@@ -298,8 +350,14 @@
             transition: opacity 0.2s;
         }
 
-        .send-btn:hover { opacity: 0.9; }
-        .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .send-btn:hover {
+            opacity: 0.9;
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
 
         .error-banner {
             display: none;
@@ -310,8 +368,11 @@
             font-size: 14px;
             text-align: center;
         }
-        .error-banner.active { display: block; }
-        
+
+        .error-banner.active {
+            display: block;
+        }
+
         .welcome-msg {
             text-align: center;
             margin: auto 0;
@@ -320,6 +381,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="layout-wrapper">
         <!-- Sidebar Debug Panel -->
@@ -339,7 +401,8 @@
                     <div class="status-indicator"></div>
                     Tackety Developer Support
                 </div>
-                <div style="font-family: var(--font-mono); font-size: 13px; color: var(--text-muted);" id="sessionIdDisplay">
+                <div style="font-family: var(--font-mono); font-size: 13px; color: var(--text-muted);"
+                    id="sessionIdDisplay">
                     [Connecting...]
                 </div>
             </div>
@@ -357,7 +420,8 @@
                     Processing<span class="blink-cursor"></span>
                 </div>
                 <div class="input-wrapper">
-                    <input type="text" id="messageInput" placeholder="Enter issue details..." autocomplete="off" autofocus>
+                    <input type="text" id="messageInput" placeholder="Enter issue details..." autocomplete="off"
+                        autofocus>
                     <button class="send-btn" id="sendBtn">Send</button>
                 </div>
             </div>
@@ -454,17 +518,17 @@
                 });
                 const data = await res.json();
                 typingIndicator.classList.remove('active');
-                
+
                 const sessionStatus = data.session_status || 'RESOLVING';
                 addLog(`Classifier state: ${sessionStatus}`, 'highlight');
 
-                if (sessionStatus === 'closed') {
-                    addLog('Session closed. Webhook event fired.', 'success');
-                    appendMessage('assistant', data.response, true, true);
+                if (data.routing) {
+                    addLog(`Engine routing triggered: ${data.routing.type}`, 'success');
+                    appendMessage('assistant', data.response, true, data.routing);
                 } else {
                     appendMessage('assistant', data.response);
                 }
-                
+
             } catch (e) {
                 typingIndicator.classList.remove('active');
                 showError('Failed to get response.');
@@ -477,44 +541,67 @@
             }
         }
 
-        function appendMessage(role, content, animate = true, isTicket = false) {
+        function appendMessage(role, content, animate = true, routingData = null) {
             const msg = document.createElement('div');
             msg.className = `message ${role}`;
             if (!animate) msg.style.animation = 'none';
 
             let innerHtml = `<div class="message-content">${escapeHtml(content)}</div>`;
-            
-            // Faux ticket render if it's a closed session
-            if (isTicket && role === 'assistant') {
+
+            // Dynamic ticket render from routing metadata
+            if (routingData && role === 'assistant') {
+                let cardRows = '';
+                
+                if (routingData.type === 'TECHNICAL') {
+                    cardRows = `
+                    <div class="ticket-card-row">
+                        <span class="ticket-card-key">cluster_id:</span>
+                        <span class="ticket-card-val number">${routingData.cluster_id}</span>
+                    </div>
+                    <div class="ticket-card-row">
+                        <span class="ticket-card-key">issue_slug:</span>
+                        <span class="ticket-card-val string">"${routingData.slug}"</span>
+                    </div>
+                    <div class="ticket-card-row">
+                        <span class="ticket-card-key">urgency:</span>
+                        <span class="ticket-card-val string">"${routingData.urgency}"</span>
+                    </div>`;
+                } else if (routingData.type === 'NON_TECHNICAL') {
+                    cardRows = `
+                    <div class="ticket-card-row">
+                        <span class="ticket-card-key">hub_queue:</span>
+                        <span class="ticket-card-val string">"NON_TECHNICAL_TICKETS"</span>
+                    </div>
+                    <div class="ticket-card-row">
+                        <span class="ticket-card-key">status:</span>
+                        <span class="ticket-card-val string">"PENDING_REVIEW"</span>
+                    </div>`;
+                } else if (routingData.type === 'HANDOVER') {
+                    cardRows = `
+                    <div class="ticket-card-row">
+                        <span class="ticket-card-key">hub_queue:</span>
+                        <span class="ticket-card-val string">"ACTIVE_HANDOVERS"</span>
+                    </div>
+                    <div class="ticket-card-row">
+                        <span class="ticket-card-key">action:</span>
+                        <span class="ticket-card-val string">"WAITING_FOR_AGENT"</span>
+                    </div>`;
+                }
+
                 innerHtml += `
                 <div class="ticket-card">
                     <div class="ticket-card-header">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 2px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                        Ticket Dispatched
+                        TACKETY ENGINE RECORD
                     </div>
-                    <div class="ticket-card-row">
-                        <span class="ticket-card-key">resource_type:</span>
-                        <span class="ticket-card-val string">"technical_issue"</span>
-                    </div>
-                    <div class="ticket-card-row">
-                        <span class="ticket-card-key">classification:</span>
-                        <span class="ticket-card-val string">"routed"</span>
-                    </div>
-                    <div class="ticket-card-row">
-                        <span class="ticket-card-key">confidence_score:</span>
-                        <span class="ticket-card-val number">0.96</span>
-                    </div>
-                    <div class="ticket-card-row">
-                        <span class="ticket-card-key">cluster_action:</span>
-                        <span class="ticket-card-val string">"mapped"</span>
-                    </div>
+                    ${cardRows}
                 </div>`;
             }
 
             msg.innerHTML = innerHtml;
             chatMessages.appendChild(msg);
             scrollToBottom();
-            
+
             if (role === 'user') {
                 addLog(`User msg len: ${content.length} chars`, 'system');
             }
@@ -551,7 +638,7 @@
         });
 
         document.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.shiftKey && e.key === 'N') {
+            if (e.ctrlKey && e.shiftKey && e.key === 'Z') {
                 e.preventDefault();
                 localStorage.removeItem('tackety_session_id');
                 chatMessages.innerHTML = '';
@@ -565,4 +652,5 @@
         initSession();
     </script>
 </body>
+
 </html>
