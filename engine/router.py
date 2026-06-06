@@ -54,6 +54,22 @@ class Router:
                 model = self.doc_processor._get_model()
                 embedding = model.encode(summary).tolist()
                 
+                # Fetch customer email
+                customer_email = None
+                session_data = self.issue_engine._get_conn().execute(
+                    "SELECT customer_email FROM sessions WHERE id = ?", (session_id,)
+                ).fetchone()
+                # Need to be careful here: sessions is in conversations.db, router doesn't have direct access.
+                # Use the session_manager (sm) that should be passed to Router or accessible.
+                # Actually, let's look at api.py... Router is initialized with (normalizer, support_hub, issue_engine, webhooks, doc_processor).
+                # It does not have access to sm.
+                # Wait, I see sm is passed to Chatbot. Chatbot has access to sm. 
+                # Let me rethink how to get email. 
+                # The chatbot has access to sm. Let's make sure chatbot passes customer_email in the 'collected' data.
+                
+                # Check current chatbot collected data.
+                customer_email = collected.get("customer_email")
+
                 # 3. Process through Issue Engine (Clustering/Weights)
                 ticket_id = str(uuid.uuid4())
                 cluster_id = self.issue_engine.process_ticket(
@@ -61,7 +77,8 @@ class Router:
                     session_id=session_id,
                     normalized_data=mapping,
                     raw_summary=summary,
-                    embedding=embedding
+                    embedding=embedding,
+                    customer_email=customer_email
                 )
                 
                 # 4. Notify

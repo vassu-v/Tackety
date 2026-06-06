@@ -1,0 +1,8 @@
+fastapi>=0.100.0
+uvicorn
+google-genai
+python-dotenv
+sentence-transformers
+sqlite-vec
+pydantic
+pypdf

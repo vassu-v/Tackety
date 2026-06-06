@@ -4,6 +4,7 @@ import os
 # Add project root to path so engine imports work
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from datetime import datetime
 from fastapi import FastAPI, HTTPException
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -82,7 +83,7 @@ except Exception as e:
 normalizer = Normalizer(doc_processor, product_context=product_context)
 support_hub = SupportHub(db_path=os.path.join(DATA_DIR, "support.db"))
 issue_engine = IssueEngine(db_path=os.path.join(DATA_DIR, "issues.db"), embedding_dim=doc_processor.embedding_dim)
-webhooks = Webhooks()
+webhooks = Webhooks(db_path=os.path.join(DATA_DIR, "conversations.db"))
 
 # 4. Intelligence Hubs
 chatbot = Chatbot(sm, doc_processor, company_context=company_context, management_context=management_context)
@@ -106,6 +107,11 @@ class MessageResponse(BaseModel):
     session_status: str
     routing: Optional[Dict[str, Any]] = None
 
+class WebhookRegistration(BaseModel):
+    event: str
+    url: str
+    secret: str
+
 # ── Endpoints ──────────────────────────────────────────────────────────
 
 @app.post("/session/start", response_model=StartSessionResponse)
@@ -114,6 +120,37 @@ def start_session(req: StartSessionRequest):
     session_id = sm.start_session(customer_email=req.customer_email)
     return StartSessionResponse(session_id=session_id)
 
+@app.post("/setup/webhook")
+def register_webhook(req: WebhookRegistration):
+    """Registers a webhook URL for a specific event."""
+    conn = sm.conn
+    conn.execute(
+        "INSERT INTO webhook_configs (event, url, secret) VALUES (?, ?, ?)",
+        (req.event, req.url, req.secret)
+    )
+    conn.commit()
+    return {"status": "success", "event": req.event}
+
+from datetime import datetime
+
+# ... existing imports ...
+
+@app.post("/clusters/{cluster_id}/resolve")
+def resolve_cluster(cluster_id: int):
+    """Marks a cluster as resolved and notifies all affected customers."""
+    # 1. Resolve in issue_engine and get metadata
+    result = issue_engine.resolve_cluster(cluster_id)
+
+    # 2. Trigger webhook for each customer
+    for email in result["emails"]:
+        webhooks.dispatch_event("ticket.resolved", {
+            "cluster_id": cluster_id,
+            "cluster_summary": result["summary"],
+            "customer_email": email,
+            "resolved_at": datetime.utcnow().isoformat()
+        })
+
+    return {"status": "success", "resolved_id": cluster_id, "notifications_sent": len(result["emails"])}
 
 @app.post("/session/message", response_model=MessageResponse)
 def send_message(req: MessageRequest):

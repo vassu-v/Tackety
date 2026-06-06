@@ -65,6 +65,11 @@ class IssueEngine:
                 FOREIGN KEY(cluster_id) REFERENCES clusters(id)
             )
         ''')
+
+        try:
+            conn.execute("ALTER TABLE technical_tickets ADD COLUMN customer_email TEXT")
+        except sqlite3.OperationalError:
+            pass # Column already exists
         
         conn.commit()
         conn.close()
@@ -72,7 +77,7 @@ class IssueEngine:
     def serialize_f32(self, vector: List[float]) -> bytes:
         return struct.pack(f"{len(vector)}f", *vector)
 
-    def process_ticket(self, ticket_id: str, session_id: str, normalized_data: Dict[str, Any], raw_summary: str, embedding: List[float]):
+    def process_ticket(self, ticket_id: str, session_id: str, normalized_data: Dict[str, Any], raw_summary: str, embedding: List[float], customer_email: Optional[str] = None):
         """
         Main entry point for engineering tickets.
         1. Searches for similar cluster.
@@ -126,8 +131,8 @@ class IssueEngine:
 
         # 4. Create the final ticket entry
         conn.execute(
-            "INSERT INTO technical_tickets (id, session_id, cluster_id, raw_summary, normalized_slug) VALUES (?, ?, ?, ?, ?)",
-            (ticket_id, session_id, cluster_id, raw_summary, slug)
+            "INSERT INTO technical_tickets (id, session_id, cluster_id, raw_summary, normalized_slug, customer_email) VALUES (?, ?, ?, ?, ?, ?)",
+            (ticket_id, session_id, cluster_id, raw_summary, slug, customer_email)
         )
 
         conn.commit()
@@ -173,3 +178,31 @@ class IssueEngine:
             
         conn.close()
         return results
+
+    def resolve_cluster(self, cluster_id: int) -> Dict[str, Any]:
+        """Marks a cluster as resolved and returns summary and unique customer emails."""
+        conn = self._get_conn()
+        
+        # 1. Resolve in issue_engine
+        conn.execute(
+            "UPDATE clusters SET status = 'RESOLVED', resolved_at = ? WHERE id = ?",
+            (datetime.utcnow().isoformat(), cluster_id)
+        )
+        
+        # 2. Get unique customer emails for this cluster
+        tickets = conn.execute(
+            "SELECT DISTINCT customer_email FROM technical_tickets WHERE cluster_id = ? AND customer_email IS NOT NULL",
+            (cluster_id,)
+        ).fetchall()
+        
+        # 3. Get cluster summary for webhook
+        cluster = conn.execute("SELECT * FROM clusters WHERE id = ?", (cluster_id,)).fetchone()
+        
+        conn.commit()
+        conn.close()
+        
+        return {
+            "summary": cluster["summary"] if cluster else "Unknown",
+            "emails": [t["customer_email"] for t in tickets]
+        }
+

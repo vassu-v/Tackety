@@ -24,32 +24,50 @@ def run_setup():
 
     # 1. Company Doc -> RAG (knowledge.db)
     # This provides the deep searchable knowledge base
-    company_pdf = os.path.join(DOCS_SOURCE_DIR, "company_doc.pdf")
-    company_text = filetypeprocessor(company_pdf)
+    company_path = os.path.join(DOCS_SOURCE_DIR, "company_doc")
+    company_text = None
+    if os.path.exists(company_path + ".pdf"):
+        company_text = filetypeprocessor(company_path + ".pdf")
+    elif os.path.exists(company_path + ".md"):
+        with open(company_path + ".md", "r") as f:
+            company_text = f.read()
+
     if company_text:
         print("Ingesting Company Knowledge into RAG database...")
         dp.clear_docs("company")
         dp.ingest_document(company_text, "company")
     else:
-        print(f"Warning: Could not process {company_pdf}")
+        print(f"Warning: Could not process company_doc (.pdf or .md)")
 
     # 2. Product Doc -> Mapping (product_context.txt)
     # This provides the technical slugs for the Normalizer
-    product_pdf = os.path.join(DOCS_SOURCE_DIR, "product_doc.pdf")
-    product_text = filetypeprocessor(product_pdf)
+    product_path = os.path.join(DOCS_SOURCE_DIR, "product_doc")
+    product_text = None
+    if os.path.exists(product_path + ".pdf"):
+        product_text = filetypeprocessor(product_path + ".pdf")
+    elif os.path.exists(product_path + ".md"):
+        with open(product_path + ".md", "r") as f:
+            product_text = f.read()
+
     if product_text:
         dp.process_product_doc(product_text, os.path.join(DATA_DIR, "product_context.txt"))
     else:
-        print(f"Warning: Could not process {product_pdf}")
+        print(f"Warning: Could not process product_doc (.pdf or .md)")
 
     # 3. Customer Management -> Summary (management_rules.txt)
     # This provides core policies for prompt injection in Chatbot
-    mgmt_pdf = os.path.join(DOCS_SOURCE_DIR, "customer_management_doc.pdf")
-    mgmt_text = filetypeprocessor(mgmt_pdf)
+    mgmt_path = os.path.join(DOCS_SOURCE_DIR, "customer_management_doc")
+    mgmt_text = None
+    if os.path.exists(mgmt_path + ".pdf"):
+        mgmt_text = filetypeprocessor(mgmt_path + ".pdf")
+    elif os.path.exists(mgmt_path + ".md"):
+        with open(mgmt_path + ".md", "r") as f:
+            mgmt_text = f.read()
+
     if mgmt_text:
         dp.process_customer_management(mgmt_text, os.path.join(DATA_DIR, "management_rules.txt"))
     else:
-        print(f"Warning: Could not process {mgmt_pdf}")
+        print(f"Warning: Could not process customer_management_doc (.pdf or .md)")
 
     print("\nSetup complete. Documentation preprocessed and knowledge base initialized.")
 

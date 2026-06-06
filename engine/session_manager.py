@@ -69,10 +69,17 @@ class SessionManager:
                 CREATE TABLE IF NOT EXISTS messages (
                     id          INTEGER PRIMARY KEY AUTOINCREMENT,
                     session_id  TEXT NOT NULL,
-                    role        TEXT NOT NULL,
                     content     TEXT NOT NULL,
+                    role        TEXT NOT NULL,
                     timestamp   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (session_id) REFERENCES sessions(id)
+                );
+
+                CREATE TABLE IF NOT EXISTS webhook_configs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event TEXT NOT NULL,
+                    url TEXT NOT NULL,
+                    secret TEXT NOT NULL
                 );
 
                 CREATE INDEX IF NOT EXISTS idx_messages_session 
