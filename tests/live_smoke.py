@@ -17,23 +17,27 @@ For the automated, offline, no-API-key-required test suite, see the
 other files in this directory and run `pytest`.
 """
 import os
+import sys
 import requests
 import time
 
 API_URL = os.getenv("TACKETY_TEST_API_URL", "http://localhost:8000")
 API_KEY = os.getenv("TACKETY_API_KEY", "")
 AUTH_HEADERS = {"X-API-Key": API_KEY}
+TIMEOUT = 15  # seconds - a stalled server/network shouldn't hang this indefinitely
 
 
 def run_smoke_test():
     print("\n--- Tackety Live Smoke Test (requires a running server + real AI key) ---\n")
 
     if not API_KEY:
-        print("WARNING: TACKETY_API_KEY is not set - /support/queue calls below will 401.")
-        print("Set it to match the server's key (see its startup console output).\n")
+        print("ERROR: TACKETY_API_KEY is not set - /support/queue calls below would 401.")
+        print("Set it to match the server's key (see its startup console output) and re-run.")
+        sys.exit(1)
 
     # 1. Start a session
-    res = requests.post(f"{API_URL}/session/start", json={"customer_email": "realignment_tester@example.com"})
+    res = requests.post(f"{API_URL}/session/start",
+                         json={"customer_email": "realignment_tester@example.com"}, timeout=TIMEOUT)
     res.raise_for_status()
     session_id = res.json()["session_id"]
     print(f"Started Session: {session_id}")
@@ -47,7 +51,7 @@ def run_smoke_test():
     ]
 
     for scenario in scenarios:
-        s_res = requests.post(f"{API_URL}/session/start", json={"customer_email": "tester@example.com"})
+        s_res = requests.post(f"{API_URL}/session/start", json={"customer_email": "tester@example.com"}, timeout=TIMEOUT)
         s_res.raise_for_status()
         s_id = s_res.json()["session_id"]
 
@@ -56,7 +60,7 @@ def run_smoke_test():
             "session_id": s_id,
             "message": scenario["msg"],
             "customer_email": "tester@example.com"
-        })
+        }, timeout=TIMEOUT)
         res.raise_for_status()
         data = res.json()
         print(f"AI Response State: {data['session_status']}")
@@ -64,7 +68,7 @@ def run_smoke_test():
     # 3. Verify the split buckets
     print("\n[TEST] Verifying Realignment at /support/queue...")
     time.sleep(1)
-    res = requests.get(f"{API_URL}/support/queue", headers=AUTH_HEADERS)
+    res = requests.get(f"{API_URL}/support/queue", headers=AUTH_HEADERS, timeout=TIMEOUT)
     res.raise_for_status()
     queue_data = res.json()
 
@@ -86,10 +90,14 @@ def run_smoke_test():
         print("\nSUCCESS: Architecture Realignment correctly separated Technical and Support flows.")
     else:
         print("\nFAILURE: Realignment logic did not meet expectations.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
     try:
         run_smoke_test()
+    except SystemExit:
+        raise
     except Exception as e:
         print(f"Error: {e}. Make sure the server is running and AI_API/TACKETY_API_KEY are set.")
+        sys.exit(1)

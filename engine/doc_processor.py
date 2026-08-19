@@ -27,7 +27,15 @@ class DocProcessor:
         if SentenceTransformer is not None:
             try:
                 model = self._get_model()
-                self.embedding_dim = model.get_sentence_embedding_dimension()
+                # get_sentence_embedding_dimension() was renamed to
+                # get_embedding_dimension() in newer sentence-transformers.
+                # requirements.txt doesn't pin an exact version, so support
+                # both rather than breaking on whichever one a given
+                # install doesn't have.
+                if hasattr(model, "get_embedding_dimension"):
+                    self.embedding_dim = model.get_embedding_dimension()
+                else:
+                    self.embedding_dim = model.get_sentence_embedding_dimension()
             except Exception:
                 pass
                 

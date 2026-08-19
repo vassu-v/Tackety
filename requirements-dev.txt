@@ -1,5 +1,7 @@
-# Extra dependencies for running the automated test suite (`pytest`).
-# Not needed to run the server itself - see requirements.txt for that.
+# Extra dependencies for running the automated test suite (`pytest`) and
+# the manual live smoke check (tests/live_smoke.py). Not needed to run the
+# server itself - see requirements.txt for that.
 -r requirements.txt
 pytest>=7.4.0
 httpx>=0.25.0
+requests>=2.31.0

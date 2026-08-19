@@ -37,7 +37,7 @@ def run_setup():
         dp.clear_docs("company")
         dp.ingest_document(company_text, "company")
     else:
-        print(f"Warning: Could not process company_doc (.pdf or .md)")
+        print("Warning: Could not process company_doc (.pdf or .md)")
 
     # 2. Product Doc -> Mapping (product_context.txt)
     # This provides the technical slugs for the Normalizer
@@ -52,7 +52,7 @@ def run_setup():
     if product_text:
         dp.process_product_doc(product_text, os.path.join(DATA_DIR, "product_context.txt"))
     else:
-        print(f"Warning: Could not process product_doc (.pdf or .md)")
+        print("Warning: Could not process product_doc (.pdf or .md)")
 
     # 3. Customer Management -> Summary (management_rules.txt)
     # This provides core policies for prompt injection in Chatbot
@@ -67,7 +67,7 @@ def run_setup():
     if mgmt_text:
         dp.process_customer_management(mgmt_text, os.path.join(DATA_DIR, "management_rules.txt"))
     else:
-        print(f"Warning: Could not process customer_management_doc (.pdf or .md)")
+        print("Warning: Could not process customer_management_doc (.pdf or .md)")
 
     print("\nSetup complete. Documentation preprocessed and knowledge base initialized.")
 
