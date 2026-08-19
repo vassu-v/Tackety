@@ -108,9 +108,14 @@ class SupportHub:
         conn.close()
         return buckets
 
-    def resolve_case(self, case_id: int):
-        """Marks a case as closed."""
+    def resolve_case(self, case_id: int) -> bool:
+        """Marks a case as closed. Returns False if no such open case exists."""
         conn = self._get_conn()
-        conn.execute("UPDATE cases SET status = 'CLOSED', resolved_at = CURRENT_TIMESTAMP WHERE id = ?", (case_id,))
+        cursor = conn.execute(
+            "UPDATE cases SET status = 'CLOSED', resolved_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'OPEN'",
+            (case_id,)
+        )
         conn.commit()
+        found = cursor.rowcount > 0
         conn.close()
+        return found

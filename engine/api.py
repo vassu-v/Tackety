@@ -220,6 +220,14 @@ def get_support_queue():
         "support_cases": support_hub.get_open_cases()
     }
 
+@app.post("/support/cases/{case_id}/resolve", dependencies=[Depends(require_api_key)])
+def resolve_support_case(case_id: int):
+    """Marks a non-technical ticket or handover case as resolved."""
+    found = support_hub.resolve_case(case_id)
+    if not found:
+        raise HTTPException(status_code=404, detail="No open case with that id")
+    return {"status": "success", "resolved_id": case_id}
+
 
 
 @app.get("/health")
