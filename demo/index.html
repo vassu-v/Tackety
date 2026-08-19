@@ -380,10 +380,11 @@
         let sessionId = localStorage.getItem('tackety_session_id');
         let isLoading = false;
 
-        customerEmailInput.value = localStorage.getItem('tackety_customer_email') || '';
-        customerEmailInput.addEventListener('change', () => {
-            localStorage.setItem('tackety_customer_email', customerEmailInput.value);
-        });
+        // Deliberately NOT persisted to localStorage: this is customer PII
+        // with no retention policy, and localStorage is shared across every
+        // session that reuses this browser profile - it would leak the
+        // previous customer's email into the next person's chat. Kept in
+        // page memory only; it's gone on refresh, same as the message text.
 
         function genId() {
             return (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);

@@ -162,7 +162,7 @@
 
             container.innerHTML = items.map(item => {
                 const sid = item.session_id ? item.session_id.substring(0, 8) : 'unknown';
-                const ts = item.created_at ? new Date(item.created_at + 'Z').toLocaleString() : '';
+                const ts = TK.formatTimestamp(item.created_at);
                 return `
                     <div class="ticket-card">
                         <div class="t-head">

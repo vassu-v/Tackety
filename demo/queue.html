@@ -242,7 +242,7 @@
                             ${(c.tickets || []).map(t => `
                                 <div class="ticket-row">
                                     <span>SID ${TK.escapeHtml(t.session_id ? t.session_id.slice(0,8) : 'unknown')}</span>
-                                    <span>${TK.escapeHtml(t.created_at ? new Date(t.created_at + 'Z').toLocaleString() : '')}</span>
+                                    <span>${TK.escapeHtml(TK.formatTimestamp(t.created_at))}</span>
                                 </div>
                             `).join('')}
                         </div>
@@ -276,7 +276,7 @@
                         <div class="summary">${TK.escapeHtml(c.summary)}</div>
                         <div class="metadata-grid">
                             <div class="meta-item">SESSION<div class="meta-value">${TK.escapeHtml(c.session_id ? c.session_id.slice(0,13) : 'unknown')}...</div></div>
-                            <div class="meta-item">CREATED<div class="meta-value">${TK.escapeHtml(c.created_at ? new Date(c.created_at + 'Z').toLocaleString() : '')}</div></div>
+                            <div class="meta-item">CREATED<div class="meta-value">${TK.escapeHtml(TK.formatTimestamp(c.created_at))}</div></div>
                         </div>
                         <div class="card-actions">
                             <button class="tk-btn" onclick="resolveCase(${c.id}, this)">Resolve</button>

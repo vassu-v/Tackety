@@ -27,6 +27,25 @@ const TK = {
         else localStorage.removeItem('tackety_api_key');
     },
 
+    /**
+     * Formats a timestamp string from the API for display. The backend
+     * mixes two formats depending on the field: SQLite's CURRENT_TIMESTAMP
+     * default ("YYYY-MM-DD HH:MM:SS", no timezone, actually UTC) for
+     * created_at columns, and Python's timezone-aware isoformat()
+     * ("YYYY-MM-DDTHH:MM:SS+00:00") for a couple of others. Blindly
+     * appending "Z" to force UTC interpretation is only correct for the
+     * first format - appended to an already-offset string it produces an
+     * invalid date. This only appends "Z" when the string doesn't already
+     * carry timezone info.
+     */
+    formatTimestamp(value) {
+        if (!value) return '';
+        const hasTimezone = /Z$|[+-]\d{2}:?\d{2}$/.test(value);
+        const iso = hasTimezone ? value : `${value}Z`;
+        const d = new Date(iso);
+        return isNaN(d.getTime()) ? value : d.toLocaleString();
+    },
+
     escapeHtml(str) {
         if (str === null || str === undefined) return '';
         const div = document.createElement('div');
