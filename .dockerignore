@@ -1,0 +1,16 @@
+.git
+.gitignore
+.venv
+venv
+__pycache__
+*.pyc
+.pytest_cache
+engine/data
+engine/.env
+.env
+*.db
+tests
+DESIGN.md
+CONTRIBUTING.md
+tackety.png
+demo/DESIGN_STRATEGY.md
