@@ -165,14 +165,21 @@ def resolve_cluster(cluster_id: int):
     return {"status": "success", "resolved_id": cluster_id, "notifications_sent": len(result["emails"])}
 
 @app.post("/session/message", response_model=MessageResponse)
-def send_message(req: MessageRequest):
+def send_message(req: MessageRequest, idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key")):
     """
     Sends a message in an existing session.
     Stores the user message, calls AI with full history, stores and returns the response.
+
+    Pass an Idempotency-Key header to make retries safe: if this message
+    results in a ticket/case being raised, replaying the same key will not
+    create a second ticket or fire a second webhook. Without it, a client
+    retry after a network timeout can double-create.
     """
     session = sm.get_session(req.session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    if session["status"] != "active":
+        raise HTTPException(status_code=409, detail=f"Session is {session['status']}, not active")
 
     # Delegate message handling, RAG, and state tracking to the Chatbot layer
     chatbot_res = chatbot.handle_message(
@@ -182,7 +189,7 @@ def send_message(req: MessageRequest):
     )
 
     # Route the AI's hidden decision
-    routing_result = router.route_decision(req.session_id, chatbot_res)
+    routing_result = router.route_decision(req.session_id, chatbot_res, client_request_id=idempotency_key)
 
     return MessageResponse(
         response=chatbot_res["response"],

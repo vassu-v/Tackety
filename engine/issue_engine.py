@@ -2,6 +2,7 @@ import sqlite3
 import sqlite_vec
 import struct
 import os
+import uuid
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
@@ -71,24 +72,50 @@ class IssueEngine:
             conn.execute("ALTER TABLE technical_tickets ADD COLUMN customer_email TEXT")
         except sqlite3.OperationalError:
             pass # Column already exists
-        
+
+        try:
+            conn.execute("ALTER TABLE technical_tickets ADD COLUMN client_request_id TEXT")
+            conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_tickets_client_request_id "
+                "ON technical_tickets(client_request_id) WHERE client_request_id IS NOT NULL"
+            )
+        except sqlite3.OperationalError:
+            pass # Column/index already exists
+
         conn.commit()
         conn.close()
 
     def serialize_f32(self, vector: List[float]) -> bytes:
         return struct.pack(f"{len(vector)}f", *vector)
 
-    def process_ticket(self, ticket_id: str, session_id: str, normalized_data: Dict[str, Any], raw_summary: str, embedding: List[float], customer_email: Optional[str] = None):
+    def process_ticket(self, session_id: str, normalized_data: Dict[str, Any], raw_summary: str, embedding: List[float], customer_email: Optional[str] = None, client_request_id: Optional[str] = None) -> Dict[str, Any]:
         """
-        Main entry point for engineering tickets.
+        Main entry point for engineering tickets. Returns
+        {"ticket_id": str, "cluster_id": int, "created": bool}.
+
+        0. If client_request_id was already processed, returns the existing
+           ticket/cluster without creating a duplicate or bumping weight -
+           this makes ticket creation safe to retry on network failure.
+           created=False signals callers (e.g. webhook dispatch) that this
+           was a replay, not a new event.
         1. Searches for similar cluster.
         2. Updates or Creates.
         3. Persists ticket.
         """
         if len(embedding) != self.embedding_dim:
             raise ValueError(f"Embedding dimension mismatch. Expected {self.embedding_dim}, got {len(embedding)}")
-            
+
         conn = self._get_conn()
+
+        if client_request_id:
+            existing = conn.execute(
+                "SELECT id, cluster_id FROM technical_tickets WHERE client_request_id = ?",
+                (client_request_id,)
+            ).fetchone()
+            if existing:
+                conn.close()
+                return {"ticket_id": existing["id"], "cluster_id": existing["cluster_id"], "created": False}
+
         slug = normalized_data.get("normalized_slug", "UNKNOWN")
         category = normalized_data.get("doc_reference", "General")
         query_vec = self.serialize_f32(embedding)
@@ -131,14 +158,15 @@ class IssueEngine:
         self._update_urgency(conn, cluster_id)
 
         # 4. Create the final ticket entry
+        ticket_id = str(uuid.uuid4())
         conn.execute(
-            "INSERT INTO technical_tickets (id, session_id, cluster_id, raw_summary, normalized_slug, customer_email) VALUES (?, ?, ?, ?, ?, ?)",
-            (ticket_id, session_id, cluster_id, raw_summary, slug, customer_email)
+            "INSERT INTO technical_tickets (id, session_id, cluster_id, raw_summary, normalized_slug, customer_email, client_request_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (ticket_id, session_id, cluster_id, raw_summary, slug, customer_email, client_request_id)
         )
 
         conn.commit()
         conn.close()
-        return cluster_id
+        return {"ticket_id": ticket_id, "cluster_id": cluster_id, "created": True}
 
     def _update_urgency(self, conn, cluster_id: int):
         """Standard urgency model based on weight."""
