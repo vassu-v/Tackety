@@ -50,6 +50,24 @@ def app(data_dir):
     return api_module
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """
+    engine.rate_limit keeps its hit-tracking in a process-global dict so
+    it survives across requests within a real server process - which
+    means it also persists across tests sharing this session-scoped app,
+    and every TestClient request looks like it comes from the same
+    client. Without this, tests would silently depend on how many
+    /session/* calls happened to run before them - reset it before every
+    test so each test's rate-limit behavior only depends on what that
+    test itself does.
+    """
+    import engine.rate_limit as rl
+    rl._hits.clear()
+    yield
+    rl._hits.clear()
+
+
 @pytest.fixture()
 def client(app):
     from fastapi.testclient import TestClient

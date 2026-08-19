@@ -12,7 +12,6 @@ from fastapi.responses import JSONResponse
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 
@@ -29,6 +28,7 @@ from engine.issue_engine import IssueEngine
 from engine.webhooks import Webhooks
 from engine.auth import verify_api_key, announce_key
 from engine.url_safety import is_safe_webhook_url
+from engine.rate_limit import rate_limit
 
 # ── App Setup ──────────────────────────────────────────────────────────
 
@@ -154,7 +154,7 @@ class WebhookRegistration(BaseModel):
 
 # ── Endpoints ──────────────────────────────────────────────────────────
 
-@app.post("/session/start", response_model=StartSessionResponse)
+@app.post("/session/start", response_model=StartSessionResponse, dependencies=[Depends(rate_limit)])
 def start_session(req: StartSessionRequest):
     """Creates a new conversation session."""
     session_id = sm.start_session(customer_email=req.customer_email)
@@ -188,7 +188,7 @@ def resolve_cluster(cluster_id: int):
 
     return {"status": "success", "resolved_id": cluster_id, "notifications_sent": len(result["emails"])}
 
-@app.post("/session/message", response_model=MessageResponse)
+@app.post("/session/message", response_model=MessageResponse, dependencies=[Depends(rate_limit)])
 def send_message(req: MessageRequest, idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key")):
     """
     Sends a message in an existing session.

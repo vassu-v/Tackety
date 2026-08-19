@@ -87,6 +87,9 @@ Once the engine is running, you can interact with it programmatically.
 
 ### Core Flow: The Chat Client
 
+> [!NOTE]
+> `/session/start` and `/session/message` are rate-limited per client IP (default 30 requests/minute - each `/session/message` call costs a real LLM request, so this is a cost guard, not just a load guard). Override with `TACKETY_RATE_LIMIT_PER_MINUTE` in `engine/.env`. Exceeding it returns `429`.
+
 **1. Start a Session**
 A new user connects to your support widget.
 ```http
