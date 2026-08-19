@@ -22,6 +22,7 @@ from engine.human_queue import SupportHub
 from engine.issue_engine import IssueEngine
 from engine.webhooks import Webhooks
 from engine.auth import verify_api_key, announce_key
+from engine.url_safety import is_safe_webhook_url
 
 # ── App Setup ──────────────────────────────────────────────────────────
 
@@ -84,7 +85,10 @@ except Exception as e:
 normalizer = Normalizer(doc_processor, product_context=product_context)
 support_hub = SupportHub(db_path=os.path.join(DATA_DIR, "support.db"))
 issue_engine = IssueEngine(db_path=os.path.join(DATA_DIR, "issues.db"), embedding_dim=doc_processor.embedding_dim)
-webhooks = Webhooks(db_path=os.path.join(DATA_DIR, "conversations.db"))
+# webhook_configs is permanent developer config, not ephemeral conversation
+# data - it lives in issues.db (permanent store), not conversations.db
+# (TTL-wiped by design). See engine/webhooks.py for the reasoning.
+webhooks = Webhooks(db_path=os.path.join(DATA_DIR, "issues.db"))
 
 # 4. Intelligence Hubs
 chatbot = Chatbot(sm, doc_processor, company_context=company_context, management_context=management_context)
@@ -137,12 +141,10 @@ def start_session(req: StartSessionRequest):
 @app.post("/setup/webhook", dependencies=[Depends(require_api_key)])
 def register_webhook(req: WebhookRegistration):
     """Registers a webhook URL for a specific event."""
-    conn = sm.conn
-    conn.execute(
-        "INSERT INTO webhook_configs (event, url, secret) VALUES (?, ?, ?)",
-        (req.event, req.url, req.secret)
-    )
-    conn.commit()
+    safe, reason = is_safe_webhook_url(req.url)
+    if not safe:
+        raise HTTPException(status_code=400, detail=f"Refusing to register webhook URL: {reason}")
+    webhooks.register(req.event, req.url, req.secret)
     return {"status": "success", "event": req.event}
 
 @app.post("/clusters/{cluster_id}/resolve", dependencies=[Depends(require_api_key)])
