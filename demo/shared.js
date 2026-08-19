@@ -5,9 +5,15 @@
  * is a testing/demo UI meant to be readable, not a frontend build.
  */
 
-const TACKETY_API_BASE = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
-    ? 'http://localhost:8000'
-    : window.location.origin;
+// These pages are meant to be opened through the server's own /demo mount
+// (e.g. http://localhost:8000/demo/index.html), so relative nav links and
+// same-origin API calls work correctly. If a page is opened directly as a
+// file:// URL instead, window.location.origin is "null" or "file://" -
+// neither is a usable API base - so fall back to the default dev server
+// address rather than silently breaking every fetch on this page.
+const TACKETY_API_BASE = /^https?:\/\//.test(window.location.origin)
+    ? window.location.origin
+    : 'http://localhost:8000';
 
 const TK = {
     API_BASE: TACKETY_API_BASE,
