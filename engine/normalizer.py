@@ -1,8 +1,12 @@
 import json
+import logging
 import re
 from typing import Dict, Any, Optional
 from engine.doc_processor import DocProcessor
 from engine.ai import call_ai
+
+logger = logging.getLogger("tackety.normalizer")
+
 
 class Normalizer:
     """
@@ -19,7 +23,7 @@ class Normalizer:
         Maps raw issue summary to internal technical terminology.
         Returns: {normalized_slug, doc_reference}
         """
-        print(f"[NORMALIZER] Terminology Mapping for: '{issue_summary}'")
+        logger.info("Terminology mapping for: '%s'", issue_summary)
         
         # 1. Retrieve most relevant technical context sections (RAG)
         rag_context = self.doc_processor.retrieve_context(issue_summary, doc_type="product", limit=2)
@@ -59,7 +63,7 @@ class Normalizer:
                     "doc_reference": str(parsed.get("doc_reference", "General"))
                 }
         except Exception as e:
-            print(f"[NORMALIZER] Mapping Fail: {e}")
+            logger.warning("Mapping failed for '%s': %s", issue_summary, e)
 
         return {
             "normalized_slug": "NORMALIZATION_FAILED",

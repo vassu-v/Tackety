@@ -1,9 +1,13 @@
+import logging
 from typing import Dict, Any, Optional
 from engine.normalizer import Normalizer
 from engine.human_queue import SupportHub
 from engine.issue_engine import IssueEngine
 from engine.webhooks import Webhooks
 from engine.doc_processor import DocProcessor
+
+logger = logging.getLogger("tackety.router")
+
 
 class Router:
     """
@@ -40,7 +44,7 @@ class Router:
         if state in ["RESOLVING", "RESOLVED"]:
             return None
             
-        print(f"\n[ROUTER] Orchestrating Heart for Session {session_id} (State: {state})")
+        logger.info("Orchestrating for session %s (state: %s)", session_id, state)
         
         summary = collected.get("issue_summary", "No summary provided")
         is_technical = collected.get("is_technical", False)
@@ -49,7 +53,7 @@ class Router:
         if state == "RAISE_TICKET":
             if is_technical:
                 # Engineering Pipeline
-                print(f"[ROUTER] Directing technical issue to Intelligence Engine.")
+                logger.info("Directing technical issue to Intelligence Engine (session %s)", session_id)
                 
                 # 1. Terminology Mapping (Terminology only, no classification)
                 mapping = self.normalizer.normalize(summary)
@@ -93,7 +97,7 @@ class Router:
                 }
             else:
                 # Support Pipeline (Non-Technical Ticket)
-                print(f"[ROUTER] Directing non-technical issue to Support Hub.")
+                logger.info("Directing non-technical issue to Support Hub (session %s)", session_id)
                 created = self.support_hub.enqueue_ticket(session_id, summary, client_request_id=client_request_id)
                 if created:
                     self.webhooks.dispatch_event("support.ticket_raised", {
@@ -107,7 +111,7 @@ class Router:
 
         # Path 4: Direct Handover
         elif state == "ESCALATE_HUMAN":
-             print(f"[ROUTER] Escalating Active Session {session_id} to Human Agent.")
+             logger.info("Escalating active session %s to human agent", session_id)
              created = self.support_hub.enqueue_handover(session_id, summary, client_request_id=client_request_id)
              if created:
                  self.webhooks.dispatch_event("handoff.initiated", {

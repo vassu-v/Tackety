@@ -1,15 +1,18 @@
 import sqlite3
 import sqlite_vec
 import struct
+import logging
 from typing import List, Dict, Optional
 import os
 from engine.ai import call_ai
 from engine.fileprocess import filetypeprocessor
 
+logger = logging.getLogger("tackety.doc_processor")
+
 try:
     from sentence_transformers import SentenceTransformer
 except ImportError:
-    print("Warning: sentence-transformers not found. Ensure it is installed: pip install sentence-transformers")
+    logger.warning("sentence-transformers not found. Ensure it is installed: pip install sentence-transformers")
     SentenceTransformer = None
 
 class DocProcessor:

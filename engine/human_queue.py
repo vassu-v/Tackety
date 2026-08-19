@@ -1,6 +1,10 @@
 import sqlite3
 import os
+import logging
 from typing import List, Dict, Any, Optional
+
+logger = logging.getLogger("tackety.support_hub")
+
 
 class SupportHub:
     """
@@ -69,7 +73,7 @@ class SupportHub:
         )
         conn.commit()
         conn.close()
-        print(f"[SUPPORT_HUB] Enqueued Non-Technical Ticket for Session {session_id}")
+        logger.info("Enqueued non-technical ticket for session %s", session_id)
         return True
 
     def enqueue_handover(self, session_id: str, summary: str, client_request_id: Optional[str] = None) -> bool:
@@ -85,7 +89,7 @@ class SupportHub:
         )
         conn.commit()
         conn.close()
-        print(f"[SUPPORT_HUB] Enqueued Active Handover for Session {session_id}")
+        logger.info("Enqueued active handover for session %s", session_id)
         return True
 
     def get_open_cases(self) -> Dict[str, List[Dict[str, Any]]]:
