@@ -1,0 +1,187 @@
+/* Shared design tokens + nav bar for the Tackety demo suite.
+   This is a testing/demo UI, not a production dashboard - the goal here
+   is transparency: every page should make it obvious what request it's
+   making, what the server returned, and how to get the API key needed
+   to make developer/agent endpoints work. */
+
+:root {
+    --bg-base: #09090b;
+    --bg-panel: #18181b;
+    --bg-hover: #27272a;
+    --border: #27272a;
+    --text-main: #f4f4f5;
+    --text-muted: #a1a1aa;
+    --text-code: #d4d4d8;
+    --accent: #ffffff;
+    --accent-tech: #22d3ee;
+    --accent-support: #f59e0b;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --font-ui: 'Inter', -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: var(--font-ui);
+    background: var(--bg-base);
+    color: var(--text-main);
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ── Shared top nav ─────────────────────────────────────────────── */
+
+.tk-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 24px;
+    background: #000;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 13px;
+}
+
+.tk-nav-left {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+.tk-nav-logo {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text-main);
+    text-decoration: none;
+}
+
+.tk-nav-links {
+    display: flex;
+    gap: 4px;
+}
+
+.tk-nav-links a {
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: 6px 10px;
+    border-radius: 4px;
+    transition: background 0.15s, color 0.15s;
+}
+
+.tk-nav-links a:hover {
+    background: var(--bg-hover);
+    color: var(--text-main);
+}
+
+.tk-nav-links a.active {
+    color: var(--text-main);
+    background: var(--bg-hover);
+}
+
+.tk-nav-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tk-key-input {
+    background: #000;
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    width: 220px;
+}
+
+.tk-key-input::placeholder { color: var(--text-muted); }
+
+.tk-key-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--danger);
+    flex-shrink: 0;
+}
+
+.tk-key-status.ok { background: var(--success); }
+
+/* ── Info / explainer banner ────────────────────────────────────── */
+
+.tk-explainer {
+    padding: 12px 24px;
+    background: rgba(34, 211, 238, 0.06);
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.tk-explainer strong { color: var(--text-main); }
+
+.tk-explainer code {
+    font-family: var(--font-mono);
+    background: var(--bg-hover);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--text-code);
+}
+
+/* ── Raw JSON / debug panels ────────────────────────────────────── */
+
+.tk-raw-toggle {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.tk-raw-toggle:hover { color: var(--text-main); border-color: #3f3f46; }
+
+.tk-raw-json {
+    display: none;
+    background: #000;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-code);
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 240px;
+    overflow-y: auto;
+    margin-top: 8px;
+}
+
+.tk-raw-json.open { display: block; }
+
+.tk-toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    padding: 12px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.2s, transform 0.2s;
+    pointer-events: none;
+    z-index: 999;
+}
+
+.tk-toast.show { opacity: 1; transform: translateY(0); }
+.tk-toast.error { border-color: rgba(239,68,68,0.5); color: var(--danger); }
+.tk-toast.success { border-color: rgba(16,185,129,0.5); color: var(--success); }

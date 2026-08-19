@@ -3,63 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tackety // Intelligence Dashboard</title>
+    <title>Tackety — Developer Queue</title>
+    <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="shared.css">
     <style>
-        :root {
-            --bg-primary: #09090B;
-            --bg-secondary: #18181B;
-            --border: #27272A;
-            --text-primary: #FAFAFA;
-            --text-secondary: #A1A1AA;
-            --accent-tech: #06B6D4;
-            --accent-support: #F59E0B;
-            --accent-danger: #EF4444;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            background-color: var(--bg-primary);
-            color: var(--text-primary);
-            font-family: 'Inter', sans-serif;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        header {
-            padding: 1.5rem 2rem;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            font-family: 'JetBrains Mono', monospace;
-            font-weight: 500;
-            letter-spacing: -0.05em;
-            color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            background: #22C55E;
-            border-radius: 50%;
-            box-shadow: 0 0 12px rgba(34, 197, 94, 0.4);
-        }
+        html, body { height: 100%; }
+        body { display: flex; flex-direction: column; overflow: hidden; }
 
         main {
             display: grid;
@@ -75,13 +27,11 @@
             overflow: hidden;
         }
 
-        .column:last-child {
-            border-right: none;
-        }
+        .column:last-child { border-right: none; }
 
         .column-header {
-            padding: 1.25rem 1.5rem;
-            background: var(--bg-secondary);
+            padding: 1rem 1.5rem;
+            background: var(--bg-panel);
             border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
@@ -93,258 +43,283 @@
             text-transform: uppercase;
             letter-spacing: 0.1em;
             font-weight: 600;
-            color: var(--text-secondary);
+            color: var(--text-muted);
         }
 
         .count-badge {
             background: var(--border);
             padding: 0.25rem 0.5rem;
             border-radius: 4px;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 0.75rem;
-            color: var(--text-primary);
         }
 
         .scroll-area {
             flex-grow: 1;
             overflow-y: auto;
-            padding: 1.5rem;
+            padding: 1.25rem;
             display: flex;
             flex-direction: column;
-            gap: 1.5rem;
+            gap: 1rem;
         }
 
-        /* Technical Cards */
+        .empty-state {
+            color: #52525b;
+            text-align: center;
+            margin-top: 40px;
+            font-family: var(--font-mono);
+            font-size: 13px;
+        }
+
         .card {
-            background: var(--bg-secondary);
+            background: var(--bg-panel);
             border: 1px solid var(--border);
-            border-radius: 4px;
+            border-radius: 6px;
             overflow: hidden;
-            transition: border-color 0.2s;
-        }
-
-        .card:hover {
-            border-color: #3F3F46;
         }
 
         .card-header {
-            padding: 1rem 1.25rem;
+            padding: 0.85rem 1.1rem;
             border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 8px;
         }
 
         .slug {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
+            font-family: var(--font-mono);
+            font-size: 0.82rem;
             color: var(--accent-tech);
+            word-break: break-all;
         }
 
         .urgency {
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             font-weight: 600;
-            padding: 0.2rem 0.4rem;
-            border-radius: 2px;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            flex-shrink: 0;
         }
 
-        .urgency-NORMAL { color: var(--text-secondary); background: rgba(161, 161, 170, 0.1); }
+        .urgency-NORMAL { color: var(--text-muted); background: rgba(161, 161, 170, 0.1); }
         .urgency-URGENT { color: var(--accent-support); background: rgba(245, 158, 11, 0.1); }
-        .urgency-CRITICAL { color: var(--accent-danger); background: rgba(239, 68, 68, 0.1); }
+        .urgency-CRITICAL { color: var(--danger); background: rgba(239, 68, 68, 0.1); }
 
-        .card-body {
-            padding: 1.25rem;
-        }
+        .card-body { padding: 1rem 1.1rem; }
 
-        .summary {
-            font-size: 0.9rem;
-            line-height: 1.5;
-            margin-bottom: 1rem;
-        }
+        .summary { font-size: 0.88rem; line-height: 1.5; margin-bottom: 0.85rem; }
 
         .metadata-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 0.75rem;
-            font-size: 0.75rem;
+            gap: 0.65rem;
+            font-size: 0.72rem;
+            margin-bottom: 0.85rem;
         }
 
-        .meta-item {
-            color: var(--text-secondary);
-            font-family: 'JetBrains Mono', monospace;
-        }
-
-        .meta-value {
-            color: var(--text-primary);
-            margin-top: 0.25rem;
-        }
+        .meta-item { color: var(--text-muted); font-family: var(--font-mono); }
+        .meta-value { color: var(--text-main); margin-top: 0.2rem; }
 
         .ticket-list {
-            margin-top: 1rem;
-            padding-top: 1rem;
+            padding-top: 0.75rem;
             border-top: 1px solid var(--border);
             display: flex;
             flex-direction: column;
-            gap: 0.5rem;
+            gap: 0.4rem;
+            margin-bottom: 0.85rem;
         }
 
         .ticket-row {
-            font-size: 0.7rem;
-            color: var(--text-secondary);
+            font-size: 0.68rem;
+            color: var(--text-muted);
             display: flex;
-            gap: 1rem;
+            justify-content: space-between;
+            font-family: var(--font-mono);
         }
 
-        /* Support Cards */
-        .support-card .slug {
-            color: var(--accent-support);
+        .card-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
         }
 
-        .sid { color: var(--text-secondary); }
-
-        /* Animation */
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+        button.tk-btn {
+            background: var(--text-main);
+            color: #000;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            font-family: var(--font-ui);
         }
 
-        .pulse {
-            animation: pulse 2s infinite ease-in-out;
-        }
+        button.tk-btn:hover { opacity: 0.85; }
+        button.tk-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+        .support-card .slug { color: var(--accent-support); }
     </style>
 </head>
 <body>
-
-<header>
-    <div class="logo">
-        TACKETY // ENGINE
-        <span class="status-dot"></span>
-        <span style="font-size: 0.7rem; color: var(--text-secondary); font-family: 'Inter', sans-serif;">LIVE FLOW</span>
-    </div>
-    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-secondary);">
-        v.0.1.0-alpha
-    </div>
-</header>
-
-<main>
-    <!-- Technical Column -->
-    <div class="column">
-        <div class="column-header">
-            <div class="column-title">Intelligence Intelligence (Technical Clusters)</div>
-            <div id="tech-count" class="count-badge">0</div>
-        </div>
-        <div id="tech-list" class="scroll-area">
-            <!-- Technical Clusters Injected Here -->
-        </div>
+    <div id="tk-nav-root"></div>
+    <div class="tk-explainer">
+        <strong>What this page shows:</strong> every open technical cluster from <code>GET /support/queue</code>, ranked by urgency (CRITICAL &gt; URGENT &gt; NORMAL) then weight.
+        A cluster's weight is how many separate reports the semantic-similarity engine grouped together - the more reports, the higher the urgency escalates automatically.
+        Click <strong>Resolve</strong> to fire <code>POST /clusters/{id}/resolve</code>, which notifies every customer who reported it via webhook.
     </div>
 
-    <!-- Support Column -->
-    <div class="column">
-        <div class="column-header">
-            <div class="column-title">Support Hub (Non-Technical Cases)</div>
-            <div id="support-count" class="count-badge">0</div>
+    <main>
+        <div class="column">
+            <div class="column-header">
+                <div class="column-title">Technical Clusters (Intelligence Engine)</div>
+                <div id="tech-count" class="count-badge">0</div>
+            </div>
+            <div id="tech-list" class="scroll-area"></div>
         </div>
-        <div id="support-list" class="scroll-area">
-            <!-- Non-Technical Tickets Injected Here -->
+
+        <div class="column">
+            <div class="column-header">
+                <div class="column-title">Support Hub (Non-Technical Cases)</div>
+                <div id="support-count" class="count-badge">0</div>
+            </div>
+            <div id="support-list" class="scroll-area"></div>
         </div>
-    </div>
-</main>
+    </main>
 
-<script>
-    function escapeHTML(str) {
-        if (!str) return '';
-        return String(str).replace(/[&<>'"]/g, match => {
-            const escapeMap = {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                "'": '&#39;',
-                '"': '&quot;'
-            };
-            return escapeMap[match];
-        });
-    }
+    <script src="shared.js"></script>
+    <script>
+        TK.renderNav('queue');
 
-    async function updateDashboard() {
-        try {
-            const response = await fetch('/support/queue');
-            const data = await response.json();
-
-            renderTechnical(data.technical_clusters);
-            renderSupport(data.support_cases);
-        } catch (error) {
-            console.error("Dashboard update failed:", error);
+        async function updateDashboard() {
+            try {
+                const res = await TK.authFetch('/support/queue');
+                if (res.status === 401) {
+                    renderAuthPrompt();
+                    return;
+                }
+                const data = await res.json();
+                renderTechnical(data.technical_clusters || []);
+                renderSupport(data.support_cases || {});
+            } catch (error) {
+                console.error("Dashboard update failed:", error);
+            }
         }
-    }
 
-    function renderTechnical(clusters) {
-        const list = document.getElementById('tech-list');
-        document.getElementById('tech-count').innerText = clusters.length;
-        
-        list.innerHTML = clusters.map(c => `
-            <div class="card">
-                <div class="card-header">
-                    <span class="slug">${escapeHTML(c.issue_slug)}</span>
-                    <span class="urgency urgency-${escapeHTML(c.urgency)}">${escapeHTML(c.urgency)}</span>
-                </div>
-                <div class="card-body">
-                    <div class="summary">${escapeHTML(c.summary)}</div>
-                    <div class="metadata-grid">
-                        <div class="meta-item">
-                            WEIGHT
-                            <div class="meta-value">${escapeHTML(c.weight)} reports</div>
-                        </div>
-                        <div class="meta-item">
-                            CATEGORY
-                            <div class="meta-value">${escapeHTML(c.category)}</div>
-                        </div>
+        function renderAuthPrompt() {
+            const msg = '<div class="empty-state">401 - set a valid X-API-Key in the nav bar above.<br>Find it in the server console output on startup, or set TACKETY_API_KEY in engine/.env.</div>';
+            document.getElementById('tech-list').innerHTML = msg;
+            document.getElementById('support-list').innerHTML = msg;
+        }
+
+        function renderTechnical(clusters) {
+            const list = document.getElementById('tech-list');
+            document.getElementById('tech-count').innerText = clusters.length;
+
+            if (clusters.length === 0) {
+                list.innerHTML = '<div class="empty-state">NO OPEN CLUSTERS</div>';
+                return;
+            }
+
+            list.innerHTML = clusters.map(c => `
+                <div class="card">
+                    <div class="card-header">
+                        <span class="slug">${TK.escapeHtml(c.issue_slug)}</span>
+                        <span class="urgency urgency-${TK.escapeHtml(c.urgency)}">${TK.escapeHtml(c.urgency)}</span>
                     </div>
-                    <div class="ticket-list">
-                        ${c.tickets.map(t => `
-                            <div class="ticket-row">
-                                <span class="sid">SID: ${escapeHTML(t.session_id ? t.session_id.slice(0,8) : 'unknown')}</span>
-                                <span>${escapeHTML(new Date(t.created_at).toLocaleTimeString())}</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    function renderSupport(cases) {
-        const list = document.getElementById('support-list');
-        const allItems = [...cases.NON_TECHNICAL_TICKETS, ...cases.CHAT_HANDOVERS];
-        document.getElementById('support-count').innerText = allItems.length;
-
-        list.innerHTML = allItems.map(c => `
-            <div class="card support-card">
-                <div class="card-header">
-                    <span class="slug">${escapeHTML(c.case_type)}</span>
-                    <span class="urgency urgency-NORMAL">PENDING</span>
-                </div>
-                <div class="card-body">
-                    <div class="summary">${escapeHTML(c.summary)}</div>
-                    <div class="metadata-grid">
-                        <div class="meta-item">
-                            SESSION ID
-                            <div class="meta-value">${escapeHTML(c.session_id ? c.session_id.slice(0,16) : 'unknown')}...</div>
+                    <div class="card-body">
+                        <div class="summary">${TK.escapeHtml(c.summary)}</div>
+                        <div class="metadata-grid">
+                            <div class="meta-item">WEIGHT<div class="meta-value">${TK.escapeHtml(c.weight)} report(s)</div></div>
+                            <div class="meta-item">CATEGORY<div class="meta-value">${TK.escapeHtml(c.category)}</div></div>
                         </div>
-                        <div class="meta-item">
-                            TIMESTAMP
-                            <div class="meta-value">${escapeHTML(new Date(c.created_at).toLocaleTimeString())}</div>
+                        <div class="ticket-list">
+                            ${(c.tickets || []).map(t => `
+                                <div class="ticket-row">
+                                    <span>SID ${TK.escapeHtml(t.session_id ? t.session_id.slice(0,8) : 'unknown')}</span>
+                                    <span>${TK.escapeHtml(t.created_at ? new Date(t.created_at + 'Z').toLocaleString() : '')}</span>
+                                </div>
+                            `).join('')}
                         </div>
+                        <div class="card-actions">
+                            <button class="tk-btn" onclick="resolveCluster(${c.id}, this)">Resolve</button>
+                            <button class="tk-raw-toggle" onclick="toggleRaw(this)">raw json</button>
+                        </div>
+                        <div class="tk-raw-json">${TK.escapeHtml(JSON.stringify(c, null, 2))}</div>
                     </div>
                 </div>
-            </div>
-        `).join('');
-    }
+            `).join('');
+        }
 
-    setInterval(updateDashboard, 5000);
-    updateDashboard();
-</script>
+        function renderSupport(cases) {
+            const list = document.getElementById('support-list');
+            const allItems = [...(cases.NON_TECHNICAL_TICKETS || []), ...(cases.CHAT_HANDOVERS || [])];
+            document.getElementById('support-count').innerText = allItems.length;
 
+            if (allItems.length === 0) {
+                list.innerHTML = '<div class="empty-state">NO OPEN CASES</div>';
+                return;
+            }
+
+            list.innerHTML = allItems.map(c => `
+                <div class="card support-card">
+                    <div class="card-header">
+                        <span class="slug">${TK.escapeHtml(c.case_type)}</span>
+                        <span class="urgency urgency-NORMAL">OPEN</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="summary">${TK.escapeHtml(c.summary)}</div>
+                        <div class="metadata-grid">
+                            <div class="meta-item">SESSION<div class="meta-value">${TK.escapeHtml(c.session_id ? c.session_id.slice(0,13) : 'unknown')}...</div></div>
+                            <div class="meta-item">CREATED<div class="meta-value">${TK.escapeHtml(c.created_at ? new Date(c.created_at + 'Z').toLocaleString() : '')}</div></div>
+                        </div>
+                        <div class="card-actions">
+                            <button class="tk-btn" onclick="resolveCase(${c.id}, this)">Resolve</button>
+                            <button class="tk-raw-toggle" onclick="toggleRaw(this)">raw json</button>
+                        </div>
+                        <div class="tk-raw-json">${TK.escapeHtml(JSON.stringify(c, null, 2))}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function toggleRaw(btn) {
+            const panel = btn.closest('.card-body').querySelector('.tk-raw-json');
+            panel.classList.toggle('open');
+        }
+
+        async function resolveCluster(id, btn) {
+            btn.disabled = true;
+            try {
+                const res = await TK.authFetch(`/clusters/${id}/resolve`, { method: 'POST' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Failed');
+                TK.toast(`Cluster ${id} resolved - ${data.notifications_sent} customer(s) notified.`, 'success');
+                updateDashboard();
+            } catch (e) {
+                TK.toast(`Failed to resolve cluster ${id}: ${e.message}`, 'error');
+                btn.disabled = false;
+            }
+        }
+
+        async function resolveCase(id, btn) {
+            btn.disabled = true;
+            try {
+                const res = await TK.authFetch(`/support/cases/${id}/resolve`, { method: 'POST' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Failed');
+                TK.toast(`Case ${id} resolved.`, 'success');
+                updateDashboard();
+            } catch (e) {
+                TK.toast(`Failed to resolve case ${id}: ${e.message}`, 'error');
+                btn.disabled = false;
+            }
+        }
+
+        window.onApiKeyChanged = updateDashboard;
+        setInterval(updateDashboard, 5000);
+        updateDashboard();
+    </script>
 </body>
 </html>
