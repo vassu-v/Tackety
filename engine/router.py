@@ -53,21 +53,10 @@ class Router:
                 # We reuse the doc_processor to generate the same vector type
                 model = self.doc_processor._get_model()
                 embedding = model.encode(summary).tolist()
-                
-                # Fetch customer email
-                customer_email = None
-                session_data = self.issue_engine._get_conn().execute(
-                    "SELECT customer_email FROM sessions WHERE id = ?", (session_id,)
-                ).fetchone()
-                # Need to be careful here: sessions is in conversations.db, router doesn't have direct access.
-                # Use the session_manager (sm) that should be passed to Router or accessible.
-                # Actually, let's look at api.py... Router is initialized with (normalizer, support_hub, issue_engine, webhooks, doc_processor).
-                # It does not have access to sm.
-                # Wait, I see sm is passed to Chatbot. Chatbot has access to sm. 
-                # Let me rethink how to get email. 
-                # The chatbot has access to sm. Let's make sure chatbot passes customer_email in the 'collected' data.
-                
-                # Check current chatbot collected data.
+
+                # Customer email comes from the chatbot's structured output - the
+                # Router has no direct access to conversations.db (by design, see
+                # DESIGN.md section 7), so this is the only correct source for it.
                 customer_email = collected.get("customer_email")
 
                 # 3. Process through Issue Engine (Clustering/Weights)
