@@ -208,28 +208,35 @@ class IssueEngine:
         conn.close()
         return results
 
-    def resolve_cluster(self, cluster_id: int) -> Dict[str, Any]:
-        """Marks a cluster as resolved and returns summary and unique customer emails."""
+    def resolve_cluster(self, cluster_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Marks an OPEN cluster as resolved and returns summary and unique
+        customer emails. Returns None if the cluster does not exist or was
+        already resolved - callers should treat that as "nothing to do"
+        rather than re-notifying every customer on a second click/retry.
+        """
         conn = self._get_conn()
-        
-        # 1. Resolve in issue_engine
-        conn.execute(
-            "UPDATE clusters SET status = 'RESOLVED', resolved_at = ? WHERE id = ?",
+
+        cursor = conn.execute(
+            "UPDATE clusters SET status = 'RESOLVED', resolved_at = ? WHERE id = ? AND status = 'OPEN'",
             (datetime.now(timezone.utc).isoformat(), cluster_id)
         )
-        
-        # 2. Get unique customer emails for this cluster
+        if cursor.rowcount == 0:
+            conn.close()
+            return None
+
+        # Get unique customer emails for this cluster
         tickets = conn.execute(
             "SELECT DISTINCT customer_email FROM technical_tickets WHERE cluster_id = ? AND customer_email IS NOT NULL",
             (cluster_id,)
         ).fetchall()
-        
-        # 3. Get cluster summary for webhook
+
+        # Get cluster summary for webhook
         cluster = conn.execute("SELECT * FROM clusters WHERE id = ?", (cluster_id,)).fetchone()
-        
+
         conn.commit()
         conn.close()
-        
+
         return {
             "summary": cluster["summary"] if cluster else "Unknown",
             "emails": [t["customer_email"] for t in tickets]

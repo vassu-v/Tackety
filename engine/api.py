@@ -152,6 +152,8 @@ def resolve_cluster(cluster_id: int):
     """Marks a cluster as resolved and notifies all affected customers."""
     # 1. Resolve in issue_engine and get metadata
     result = issue_engine.resolve_cluster(cluster_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="No open cluster with that id")
 
     # 2. Trigger webhook for each customer
     for email in result["emails"]:
