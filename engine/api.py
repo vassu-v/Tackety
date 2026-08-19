@@ -4,8 +4,8 @@ import os
 # Add project root to path so engine imports work
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from datetime import datetime
-from fastapi import FastAPI, HTTPException
+from datetime import datetime, timezone
+from fastapi import FastAPI, HTTPException, Depends, Header
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -131,10 +131,6 @@ def register_webhook(req: WebhookRegistration):
     conn.commit()
     return {"status": "success", "event": req.event}
 
-from datetime import datetime
-
-# ... existing imports ...
-
 @app.post("/clusters/{cluster_id}/resolve")
 def resolve_cluster(cluster_id: int):
     """Marks a cluster as resolved and notifies all affected customers."""
@@ -147,7 +143,7 @@ def resolve_cluster(cluster_id: int):
             "cluster_id": cluster_id,
             "cluster_summary": result["summary"],
             "customer_email": email,
-            "resolved_at": datetime.utcnow().isoformat()
+            "resolved_at": datetime.now(timezone.utc).isoformat()
         })
 
     return {"status": "success", "resolved_id": cluster_id, "notifications_sent": len(result["emails"])}

@@ -2,6 +2,7 @@ import sqlite3
 import sqlite_vec
 import struct
 import os
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
 class IssueEngine:
@@ -186,7 +187,7 @@ class IssueEngine:
         # 1. Resolve in issue_engine
         conn.execute(
             "UPDATE clusters SET status = 'RESOLVED', resolved_at = ? WHERE id = ?",
-            (datetime.utcnow().isoformat(), cluster_id)
+            (datetime.now(timezone.utc).isoformat(), cluster_id)
         )
         
         # 2. Get unique customer emails for this cluster
