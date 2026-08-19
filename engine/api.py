@@ -59,7 +59,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     )
 
 # ── Component Initialization ──────────────────────────────────────────
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+DATA_DIR = os.getenv("TACKETY_DATA_DIR") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
 # 1. Base Storage & Retrieval
