@@ -10,14 +10,51 @@ class Webhooks:
     Standard Webhook Dispatcher.
     Fires signed HMAC-SHA256 POST requests to registered endpoints.
     Allows for decoupled, async-friendly system monitoring.
+
+    webhook_configs lives in its own table here, owned by this class -
+    it used to live in conversations.db, which is TTL-wiped by design
+    (see DESIGN.md section 7). Webhook registrations are permanent
+    developer config, not ephemeral conversation data, so a clean wipe
+    of conversations.db should never be able to silently delete them.
+    Point db_path at issues.db (or a dedicated config store) instead.
     """
 
     def __init__(self, db_path: str):
         self.db_path = db_path
+        self._init_db()
 
-    def _get_configs(self, event_type: str) -> List[Dict[str, str]]:
+    def _get_conn(self):
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
+        return conn
+
+    def _init_db(self):
+        conn = self._get_conn()
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS webhook_configs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event TEXT NOT NULL,
+                url TEXT NOT NULL,
+                secret TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        conn.commit()
+        conn.close()
+
+    def register(self, event: str, url: str, secret: str):
+        """Registers a webhook URL for a specific event. Caller is
+        responsible for validating the URL (see engine/url_safety.py)."""
+        conn = self._get_conn()
+        conn.execute(
+            "INSERT INTO webhook_configs (event, url, secret) VALUES (?, ?, ?)",
+            (event, url, secret)
+        )
+        conn.commit()
+        conn.close()
+
+    def _get_configs(self, event_type: str) -> List[Dict[str, str]]:
+        conn = self._get_conn()
         configs = conn.execute(
             "SELECT url, secret FROM webhook_configs WHERE event = ?", (event_type,)
         ).fetchall()

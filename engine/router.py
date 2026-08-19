@@ -1,4 +1,3 @@
-import uuid
 from typing import Dict, Any, Optional
 from engine.normalizer import Normalizer
 from engine.human_queue import SupportHub
@@ -24,9 +23,15 @@ class Router:
         self.webhooks = webhooks
         self.doc_processor = doc_processor
         
-    def route_decision(self, session_id: str, chatbot_json: Dict[str, Any]):
+    def route_decision(self, session_id: str, chatbot_json: Dict[str, Any], client_request_id: Optional[str] = None):
         """
         Main routing entry point. Directs based on state and technical flags.
+
+        client_request_id, when provided by the caller (e.g. an
+        Idempotency-Key header on POST /session/message), makes ticket/case
+        creation and the resulting webhook dispatch safe to retry: replaying
+        the same key returns the original result instead of creating a
+        duplicate ticket or double-firing a webhook.
         """
         state = chatbot_json.get("state", "RESOLVING")
         collected = chatbot_json.get("collected", {})
@@ -53,43 +58,33 @@ class Router:
                 # We reuse the doc_processor to generate the same vector type
                 model = self.doc_processor._get_model()
                 embedding = model.encode(summary).tolist()
-                
-                # Fetch customer email
-                customer_email = None
-                session_data = self.issue_engine._get_conn().execute(
-                    "SELECT customer_email FROM sessions WHERE id = ?", (session_id,)
-                ).fetchone()
-                # Need to be careful here: sessions is in conversations.db, router doesn't have direct access.
-                # Use the session_manager (sm) that should be passed to Router or accessible.
-                # Actually, let's look at api.py... Router is initialized with (normalizer, support_hub, issue_engine, webhooks, doc_processor).
-                # It does not have access to sm.
-                # Wait, I see sm is passed to Chatbot. Chatbot has access to sm. 
-                # Let me rethink how to get email. 
-                # The chatbot has access to sm. Let's make sure chatbot passes customer_email in the 'collected' data.
-                
-                # Check current chatbot collected data.
+
+                # Customer email comes from the chatbot's structured output - the
+                # Router has no direct access to conversations.db (by design, see
+                # DESIGN.md section 7), so this is the only correct source for it.
                 customer_email = collected.get("customer_email")
 
                 # 3. Process through Issue Engine (Clustering/Weights)
-                ticket_id = str(uuid.uuid4())
-                cluster_id = self.issue_engine.process_ticket(
-                    ticket_id=ticket_id,
+                result = self.issue_engine.process_ticket(
                     session_id=session_id,
                     normalized_data=mapping,
                     raw_summary=summary,
                     embedding=embedding,
-                    customer_email=customer_email
+                    customer_email=customer_email,
+                    client_request_id=client_request_id
                 )
-                
-                # 4. Notify
-                self.webhooks.dispatch_event("ticket.created", {
-                    "ticket_id": ticket_id,
-                    "cluster_id": cluster_id,
-                    "summary": summary,
-                    "slug": mapping["normalized_slug"],
-                    "session_id": session_id
-                })
-                
+                cluster_id = result["cluster_id"]
+
+                # 4. Notify - only on genuine creation, not a retried replay
+                if result["created"]:
+                    self.webhooks.dispatch_event("ticket.created", {
+                        "ticket_id": result["ticket_id"],
+                        "cluster_id": cluster_id,
+                        "summary": summary,
+                        "slug": mapping["normalized_slug"],
+                        "session_id": session_id
+                    })
+
                 return {
                     "type": "TECHNICAL",
                     "cluster_id": cluster_id,
@@ -99,24 +94,26 @@ class Router:
             else:
                 # Support Pipeline (Non-Technical Ticket)
                 print(f"[ROUTER] Directing non-technical issue to Support Hub.")
-                self.support_hub.enqueue_ticket(session_id, summary)
-                self.webhooks.dispatch_event("support.ticket_raised", {
-                    "session_id": session_id,
-                    "summary": summary
-                })
+                created = self.support_hub.enqueue_ticket(session_id, summary, client_request_id=client_request_id)
+                if created:
+                    self.webhooks.dispatch_event("support.ticket_raised", {
+                        "session_id": session_id,
+                        "summary": summary
+                    })
                 return {
                     "type": "NON_TECHNICAL",
                     "summary": summary
                 }
-                
+
         # Path 4: Direct Handover
         elif state == "ESCALATE_HUMAN":
              print(f"[ROUTER] Escalating Active Session {session_id} to Human Agent.")
-             self.support_hub.enqueue_handover(session_id, summary)
-             self.webhooks.dispatch_event("handoff.initiated", {
-                 "session_id": session_id,
-                 "summary": summary
-             })
+             created = self.support_hub.enqueue_handover(session_id, summary, client_request_id=client_request_id)
+             if created:
+                 self.webhooks.dispatch_event("handoff.initiated", {
+                     "session_id": session_id,
+                     "summary": summary
+                 })
              return {
                  "type": "HANDOVER",
                  "summary": summary

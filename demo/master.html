@@ -3,59 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tackety — Master Console</title>
+    <title>Tackety — System Overview</title>
+    <link rel="icon" type="image/png" href="favicon.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="shared.css">
     <style>
-        :root {
-            --bg-base: #09090b;
-            --bg-panel: #18181b;
-            --border: #27272a;
-            --text-main: #f4f4f5;
-            --text-muted: #a1a1aa;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --font-ui: 'Inter', sans-serif;
-            --font-mono: 'JetBrains Mono', monospace;
-        }
-
-        body {
-            font-family: var(--font-ui);
-            background: var(--bg-base);
-            color: var(--text-main);
-            margin: 0;
-            padding: 32px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
         .container {
-            width: 100%;
             max-width: 1000px;
+            margin: 0 auto;
+            padding: 32px 24px 64px;
         }
 
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 24px;
-            margin-bottom: 32px;
-        }
-
-        .title {
-            font-size: 18px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
+        h1 { font-size: 20px; font-weight: 600; margin: 0 0 6px; }
+        .subtitle { color: var(--text-muted); font-size: 14px; margin-bottom: 32px; }
 
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 24px;
+            gap: 16px;
             margin-bottom: 32px;
         }
 
@@ -63,96 +28,184 @@
             background: #000;
             border: 1px solid var(--border);
             border-radius: 8px;
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+            padding: 20px;
         }
 
         .stat-label {
             font-family: var(--font-mono);
-            font-size: 12px;
+            font-size: 11px;
             color: var(--text-muted);
             text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
 
         .stat-val {
-            font-size: 36px;
+            font-size: 32px;
             font-weight: 500;
             font-family: var(--font-mono);
+            margin-top: 6px;
         }
 
-        .console-log {
-            background: #000;
+        .stat-note {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        section {
+            background: var(--bg-panel);
             border: 1px solid var(--border);
             border-radius: 8px;
             padding: 24px;
-            font-family: var(--font-mono);
+            margin-bottom: 20px;
+        }
+
+        section h2 {
             font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
             color: var(--text-muted);
-            min-height: 400px;
+            margin: 0 0 16px;
+        }
+
+        .flow {
+            font-family: var(--font-mono);
+            font-size: 12.5px;
+            line-height: 1.9;
+            color: var(--text-code);
+            white-space: pre;
+            overflow-x: auto;
+        }
+
+        .setup-steps {
+            font-size: 13.5px;
+            line-height: 1.9;
+            color: var(--text-muted);
+        }
+
+        .setup-steps code {
+            font-family: var(--font-mono);
+            background: #000;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--text-code);
+            font-size: 12px;
+        }
+
+        .badge {
+            display: inline-block;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background: rgba(16,185,129,0.12);
+            color: var(--success);
+            margin-left: 6px;
+        }
+
+        .badge.warn {
+            background: rgba(245,158,11,0.12);
+            color: var(--warning);
         }
     </style>
 </head>
 <body>
+    <div id="tk-nav-root"></div>
+
     <div class="container">
-        <header>
-            <div class="title">
-                <div style="width: 8px; height: 8px; background: var(--success); border-radius: 50%;"></div>
-                TACKETY // MASTER CONSOLE
-            </div>
-            <div style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">
-                LIVE TELEMETRY
-            </div>
-        </header>
+        <h1>Tackety // System Overview</h1>
+        <p class="subtitle">Honest, live status - this page shows only numbers actually returned by the API. Nothing here is simulated.</p>
 
         <div class="stats-grid">
             <div class="stat-card">
-                <span class="stat-label">AI Resolution Rate</span>
-                <span class="stat-val" style="color: var(--success);" id="ai-rate">--%</span>
+                <div class="stat-label">Open Technical Clusters</div>
+                <div class="stat-val" id="cluster-count">—</div>
+                <div class="stat-note">Grouped by semantic similarity, weight = report count</div>
             </div>
             <div class="stat-card">
-                <span class="stat-label">Active Clusters</span>
-                <span class="stat-val" id="cluster-count">0</span>
+                <div class="stat-label">Open Support Cases</div>
+                <div class="stat-val" id="human-count">—</div>
+                <div class="stat-note">Non-technical tickets + live handovers</div>
             </div>
             <div class="stat-card">
-                <span class="stat-label">Pending Interventions</span>
-                <span class="stat-val" style="color: var(--warning);" id="human-count">0</span>
+                <div class="stat-label">API Key</div>
+                <div class="stat-val" id="key-status" style="font-size: 18px;">—</div>
+                <div class="stat-note">Set it in the nav bar above</div>
             </div>
         </div>
 
-        <div class="console-log">
-            <div style="margin-bottom: 16px; color: var(--text-main);">// SYSTEM EVENT LOG</div>
-            <div id="log-content">
-                [SYSTEM] Master console initialized. Awaiting telemetry...<br>
-                [SYSTEM] /stats/engine endpoint connection pending backend integration.<br>
+        <section>
+            <h2>How a message gets routed</h2>
+            <div class="flow" id="flow-diagram">Customer sends a message on the Chat page
+        |
+        v
+chatbot.py -- RAG over product docs + full company/policy context
+  decides one of: RESOLVED | RESOLVING | RAISE_TICKET | ESCALATE_HUMAN
+        |
+   +----+-------------------+------------------------+
+   |                        |                        |
+RESOLVED              RAISE_TICKET             ESCALATE_HUMAN
+no action           (technical or not)          human handover
+   |                        |                        |
+   |            +-----------+-----------+             |
+   |            |                       |             |
+   |       technical               non-technical      |
+   |            v                       v             v
+   |     normalizer.py            support_hub.py  support_hub.py
+   |     (terminology)          enqueue_ticket()  enqueue_handover()
+   |            v                       |             |
+   |     issue_engine.py                +------+------+
+   |     cluster by cosine                     v
+   |     similarity, bump weight          support.db
+   |            v                     (Developer Queue / Agent Workspace)
+   |       issues.db
+   |            v
+   |    webhook: ticket.created  (skipped if this was a retried/duplicate request)
+   v
+session closed</div>
+        </section>
+
+        <section>
+            <h2>Try it yourself</h2>
+            <div class="setup-steps">
+                1. Open the <a href="index.html" style="color: var(--text-main);">Chat</a> page and describe an issue - try a technical bug ("checkout is crashing") vs. a billing question ("I want a refund") vs. "let me talk to a human". Each routes differently, and the chat page shows you the raw engine response for every message.<br><br>
+                2. Copy the API key printed in the server's console output (or set <code>TACKETY_API_KEY</code> in <code>engine/.env</code> for a stable one) and paste it into the nav bar above.<br><br>
+                3. Open the <a href="queue.html" style="color: var(--text-main);">Developer Queue</a> to see technical clusters ranked by urgency, and the <a href="agent.html" style="color: var(--text-main);">Agent Workspace</a> to see (and resolve) non-technical cases and live handovers.
             </div>
-        </div>
+        </section>
     </div>
 
+    <script src="shared.js"></script>
     <script>
-        async function fetchTelemetry() {
+        TK.renderNav('overview');
+
+        async function refresh() {
+            const keyEl = document.getElementById('key-status');
+            const key = TK.getApiKey();
+            keyEl.textContent = key ? 'SET' : 'NOT SET';
+            keyEl.style.color = key ? 'var(--success)' : 'var(--danger)';
+
             try {
-                // Fetch live cluster and support data
-                const res = await fetch('http://localhost:8000/support/queue');
+                const res = await TK.authFetch('/support/queue');
+                if (!res.ok) {
+                    document.getElementById('cluster-count').textContent = res.status === 401 ? 'auth?' : 'err';
+                    document.getElementById('human-count').textContent = res.status === 401 ? 'auth?' : 'err';
+                    return;
+                }
                 const data = await res.json();
-                
-                const clusters = data.technical_clusters || [];
-                const supportCases = data.support_cases || {};
-                const humans = (supportCases.NON_TECHNICAL_TICKETS?.length || 0) + (supportCases.CHAT_HANDOVERS?.length || 0);
-
-                document.getElementById('cluster-count').textContent = clusters.length;
+                document.getElementById('cluster-count').textContent = (data.technical_clusters || []).length;
+                const sc = data.support_cases || {};
+                const humans = (sc.NON_TECHNICAL_TICKETS?.length || 0) + (sc.CHAT_HANDOVERS?.length || 0);
                 document.getElementById('human-count').textContent = humans;
-
-                // Faux resolution rate for now until API `/stats/engine` is built
-                document.getElementById('ai-rate').textContent = (clusters.length === 0 && humans === 0) ? '100%' : '78.4%';
-
             } catch (e) {
-                console.error('Telemetry failed', e);
+                document.getElementById('cluster-count').textContent = 'offline';
+                document.getElementById('human-count').textContent = 'offline';
             }
         }
-        fetchTelemetry();
-        setInterval(fetchTelemetry, 5000);
+
+        window.onApiKeyChanged = refresh;
+        refresh();
+        setInterval(refresh, 6000);
     </script>
 </body>
 </html>

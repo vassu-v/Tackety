@@ -3,7 +3,7 @@ import uuid
 import os
 import threading
 from typing import List, Dict, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 class SessionManager:
@@ -75,14 +75,7 @@ class SessionManager:
                     FOREIGN KEY (session_id) REFERENCES sessions(id)
                 );
 
-                CREATE TABLE IF NOT EXISTS webhook_configs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    event TEXT NOT NULL,
-                    url TEXT NOT NULL,
-                    secret TEXT NOT NULL
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_messages_session 
+                CREATE INDEX IF NOT EXISTS idx_messages_session
                     ON messages(session_id);
 
                 CREATE INDEX IF NOT EXISTS idx_sessions_status_closed 
@@ -128,7 +121,7 @@ class SessionManager:
         with self._lock:
             self.conn.execute(
                 "UPDATE sessions SET status = ?, closed_at = ? WHERE id = ?",
-                (status, datetime.utcnow().isoformat(), session_id)
+                (status, datetime.now(timezone.utc).replace(tzinfo=None).isoformat(), session_id)
             )
             self.conn.commit()
 
@@ -226,7 +219,7 @@ class SessionManager:
             if self._session_counter % self.cleanup_interval != 0:
                 return
 
-            cutoff = (datetime.utcnow() - timedelta(days=self.ttl_days)).isoformat()
+            cutoff = (datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=self.ttl_days)).isoformat()
             # Delete orphaned messages first (referential integrity)
             self.conn.execute(
                 "DELETE FROM messages WHERE session_id IN ("

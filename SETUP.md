@@ -10,15 +10,22 @@ Welcome to the Tackety Issue Engine. This guide provides step-by-step instructio
 
 Ensure your environment is ready before starting:
 
-1. **Python 3.10+**
-2. **Install Core Dependencies**:
+1. **Python 3.10+** (3.10 and 3.12 are both verified working; if you have multiple versions installed, prefer 3.10)
+2. **Create a virtual environment and install dependencies**:
    ```bash
-   pip install fastapi uvicorn google-genai python-dotenv sqlite-vec sentence-transformers pypdf
+   python -m venv .venv
+   # Windows: .venv\Scripts\activate    Linux/macOS: source .venv/bin/activate
+   pip install -r requirements.txt
    ```
-3. **API Keys**: Create an `.env` file in the `engine/` directory and add your LLM API key.
+3. **Environment file**: copy `engine/.env.example` to `engine/.env` and fill in your values.
    ```env
    AI_API=your_gemini_api_key_here
+
+   # Optional but recommended for anything beyond a quick local demo - see
+   # step 3 below for what happens if you skip this.
+   TACKETY_API_KEY=some-long-random-string
    ```
+   `engine/.env` is gitignored - never commit it with a real key in it.
 
 ---
 
@@ -58,6 +65,16 @@ cd engine
 python api.py
 ```
 *The engine will now be active at `http://localhost:8000`.*
+
+If you didn't set `TACKETY_API_KEY` in step 1, the server generates a random one on every start and prints it to the console - copy it from there (it changes on every restart, so set it explicitly in `engine/.env` for anything you want to keep using across restarts).
+
+### Running the test suite
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+The tests run entirely offline against an in-memory-style temp database - no live server, no real AI provider key needed. `tests/live_smoke.py` is a separate, manual live-server check (see the docstring at the top of that file for how to run it).
 
 ---
 
@@ -111,24 +128,48 @@ Content-Type: application/json
 
 ### Core Flow: Dashboard & Webhooks
 
+> [!IMPORTANT]
+> Every endpoint below requires an `X-API-Key` header matching your `TACKETY_API_KEY` (see section 1). The customer-facing `/session/*` endpoints above do not.
+
 **1. Poll the Engine State**
 Your agent and admin dashboards can retrieve real-time clustered intelligence:
 ```http
 GET /support/queue
+X-API-Key: your-tackety-api-key
 ```
 *Returns arrays of `technical_clusters` and manual `support_cases`.*
 
-**2. Listen to Webhooks**
-Tackety uses generic, HMAC-SHA256 signed webhooks to push events to your infrastructure.
-*   Configure the endpoints in `engine/webhooks.py`.
-*   Supported Events: `ticket.created`, `support.ticket_raised`, `handoff.initiated`.
+**2. Resolve a Cluster or Case**
+```http
+POST /clusters/{cluster_id}/resolve
+POST /support/cases/{case_id}/resolve
+X-API-Key: your-tackety-api-key
+```
+Resolving a cluster fires a `ticket.resolved` webhook to every customer who reported it.
+
+**3. Register Webhooks**
+Tackety uses generic, HMAC-SHA256 signed webhooks to push events to your infrastructure. Register an endpoint via the API (not by editing `engine/webhooks.py` directly):
+```http
+POST /setup/webhook
+X-API-Key: your-tackety-api-key
+Content-Type: application/json
+
+{
+    "event": "ticket.created",
+    "url": "https://your-server.example.com/webhooks/tackety",
+    "secret": "a-shared-secret-you-choose"
+}
+```
+Registered URLs are validated and rejected if they resolve to a private, loopback, or link-local address (SSRF protection) - only public `http(s)` targets are accepted.
+*   Supported Events: `ticket.created`, `ticket.resolved`, `support.ticket_raised`, `handoff.initiated`.
 
 ---
 
 ## 5. View the Demo UIs
 
-To see the engine in action, open the following files in your browser (while the engine is running):
+While the engine is running, open `http://localhost:8000/demo/master.html` (or any of the pages below directly - they're all linked from a shared nav bar). Paste your `TACKETY_API_KEY` into the nav bar's key field once; it's remembered per-browser via localStorage.
 
-*   **Customer Chat**: `demo/index.html`
-*   **Agent Workspace**: `demo/agent.html`
-*   **Master Console**: `demo/master.html`
+*   **System Overview**: `demo/master.html` - live counts and an explanation of the routing flow, no fabricated numbers.
+*   **Customer Chat**: `demo/index.html` - talks to the chatbot; shows the raw engine response for every message.
+*   **Developer Queue**: `demo/queue.html` - ranked technical clusters, with a working Resolve action.
+*   **Agent Workspace**: `demo/agent.html` - non-technical tickets and live handovers, with working Resolve actions.

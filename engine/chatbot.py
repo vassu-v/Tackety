@@ -71,7 +71,7 @@ JSON Format:
     "issue_summary": "Short 1-sentence summary",
     "is_technical": true | false,
     "issue_type": "bug" | "billing" | "refund" | "feature_request",
-    "customer_email": "{customer_email if customer_email else 'null'}"
+    "customer_email": {json.dumps(customer_email) if customer_email else "null"}
   }}
 }}
 """

@@ -1,17 +1,23 @@
 import sys
 import os
+import logging
+import traceback
 
 # Add project root to path so engine imports work
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from datetime import datetime
-from fastapi import FastAPI, HTTPException
+from datetime import datetime, timezone
+from fastapi import FastAPI, HTTPException, Depends, Header, Request
+from fastapi.responses import JSONResponse
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+logger = logging.getLogger("tackety")
 
 from engine.session_manager import SessionManager
 from engine.doc_processor import DocProcessor
@@ -21,6 +27,8 @@ from engine.normalizer import Normalizer
 from engine.human_queue import SupportHub
 from engine.issue_engine import IssueEngine
 from engine.webhooks import Webhooks
+from engine.auth import verify_api_key, announce_key
+from engine.url_safety import is_safe_webhook_url
 
 # ── App Setup ──────────────────────────────────────────────────────────
 
@@ -34,8 +42,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """
+    Without this, an unhandled exception (e.g. a missing AI_API key, a
+    downstream AI provider outage) returns a bare 'Internal Server Error'
+    plain-text body with nothing logged beyond uvicorn's own traceback
+    dump - hard to diagnose in production and impossible for API clients
+    to parse. This logs the full traceback server-side and returns a
+    structured JSON body without leaking internals to the client.
+    """
+    logger.error("Unhandled exception on %s %s:\n%s", request.method, request.url.path, traceback.format_exc())
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error. Check the server logs for details."}
+    )
+
 # ── Component Initialization ──────────────────────────────────────────
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+DATA_DIR = os.getenv("TACKETY_DATA_DIR") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
 # 1. Base Storage & Retrieval
@@ -83,11 +107,27 @@ except Exception as e:
 normalizer = Normalizer(doc_processor, product_context=product_context)
 support_hub = SupportHub(db_path=os.path.join(DATA_DIR, "support.db"))
 issue_engine = IssueEngine(db_path=os.path.join(DATA_DIR, "issues.db"), embedding_dim=doc_processor.embedding_dim)
-webhooks = Webhooks(db_path=os.path.join(DATA_DIR, "conversations.db"))
+# webhook_configs is permanent developer config, not ephemeral conversation
+# data - it lives in issues.db (permanent store), not conversations.db
+# (TTL-wiped by design). See engine/webhooks.py for the reasoning.
+webhooks = Webhooks(db_path=os.path.join(DATA_DIR, "issues.db"))
 
 # 4. Intelligence Hubs
 chatbot = Chatbot(sm, doc_processor, company_context=company_context, management_context=management_context)
 router = Router(normalizer, support_hub, issue_engine, webhooks, doc_processor)
+
+announce_key()
+
+# ── Auth ───────────────────────────────────────────────────────────────
+
+def require_api_key(x_api_key: Optional[str] = Header(None, alias="X-API-Key")):
+    """
+    Guards developer/agent-facing endpoints. The customer-facing chat
+    surface (/session/*) and /health stay open by design - this only
+    protects endpoints that read or mutate ticket/queue/webhook data.
+    """
+    if not verify_api_key(x_api_key):
+        raise HTTPException(status_code=401, detail="Missing or invalid X-API-Key header")
 
 # ── Request/Response Models ────────────────────────────────────────────
 
@@ -120,26 +160,22 @@ def start_session(req: StartSessionRequest):
     session_id = sm.start_session(customer_email=req.customer_email)
     return StartSessionResponse(session_id=session_id)
 
-@app.post("/setup/webhook")
+@app.post("/setup/webhook", dependencies=[Depends(require_api_key)])
 def register_webhook(req: WebhookRegistration):
     """Registers a webhook URL for a specific event."""
-    conn = sm.conn
-    conn.execute(
-        "INSERT INTO webhook_configs (event, url, secret) VALUES (?, ?, ?)",
-        (req.event, req.url, req.secret)
-    )
-    conn.commit()
+    safe, reason = is_safe_webhook_url(req.url)
+    if not safe:
+        raise HTTPException(status_code=400, detail=f"Refusing to register webhook URL: {reason}")
+    webhooks.register(req.event, req.url, req.secret)
     return {"status": "success", "event": req.event}
 
-from datetime import datetime
-
-# ... existing imports ...
-
-@app.post("/clusters/{cluster_id}/resolve")
+@app.post("/clusters/{cluster_id}/resolve", dependencies=[Depends(require_api_key)])
 def resolve_cluster(cluster_id: int):
     """Marks a cluster as resolved and notifies all affected customers."""
     # 1. Resolve in issue_engine and get metadata
     result = issue_engine.resolve_cluster(cluster_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="No open cluster with that id")
 
     # 2. Trigger webhook for each customer
     for email in result["emails"]:
@@ -147,20 +183,27 @@ def resolve_cluster(cluster_id: int):
             "cluster_id": cluster_id,
             "cluster_summary": result["summary"],
             "customer_email": email,
-            "resolved_at": datetime.utcnow().isoformat()
+            "resolved_at": datetime.now(timezone.utc).isoformat()
         })
 
     return {"status": "success", "resolved_id": cluster_id, "notifications_sent": len(result["emails"])}
 
 @app.post("/session/message", response_model=MessageResponse)
-def send_message(req: MessageRequest):
+def send_message(req: MessageRequest, idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key")):
     """
     Sends a message in an existing session.
     Stores the user message, calls AI with full history, stores and returns the response.
+
+    Pass an Idempotency-Key header to make retries safe: if this message
+    results in a ticket/case being raised, replaying the same key will not
+    create a second ticket or fire a second webhook. Without it, a client
+    retry after a network timeout can double-create.
     """
     session = sm.get_session(req.session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    if session["status"] != "active":
+        raise HTTPException(status_code=409, detail=f"Session is {session['status']}, not active")
 
     # Delegate message handling, RAG, and state tracking to the Chatbot layer
     chatbot_res = chatbot.handle_message(
@@ -170,7 +213,7 @@ def send_message(req: MessageRequest):
     )
 
     # Route the AI's hidden decision
-    routing_result = router.route_decision(req.session_id, chatbot_res)
+    routing_result = router.route_decision(req.session_id, chatbot_res, client_request_id=idempotency_key)
 
     return MessageResponse(
         response=chatbot_res["response"],
@@ -189,7 +232,7 @@ def get_session_history(session_id: str):
     return {"messages": history}
 
 
-@app.get("/support/queue")
+@app.get("/support/queue", dependencies=[Depends(require_api_key)])
 def get_support_queue():
     """
     Returns the unified support and intelligence status.
@@ -200,6 +243,14 @@ def get_support_queue():
         "technical_clusters": issue_engine.get_ranked_clusters(),
         "support_cases": support_hub.get_open_cases()
     }
+
+@app.post("/support/cases/{case_id}/resolve", dependencies=[Depends(require_api_key)])
+def resolve_support_case(case_id: int):
+    """Marks a non-technical ticket or handover case as resolved."""
+    found = support_hub.resolve_case(case_id)
+    if not found:
+        raise HTTPException(status_code=404, detail="No open case with that id")
+    return {"status": "success", "resolved_id": case_id}
 
 
 

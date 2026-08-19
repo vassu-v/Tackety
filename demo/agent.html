@@ -4,53 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tackety — Agent Workspace</title>
+    <link rel="icon" type="image/png" href="favicon.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="shared.css">
     <style>
-        :root {
-            --bg-base: #09090b;
-            --bg-panel: #18181b;
-            --border: #27272a;
-            --text-main: #f4f4f5;
-            --text-muted: #a1a1aa;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --font-ui: 'Inter', sans-serif;
-            --font-mono: 'JetBrains Mono', monospace;
-        }
+        html, body { height: 100%; }
+        body { display: flex; flex-direction: column; overflow: hidden; }
 
-        body {
-            font-family: var(--font-ui);
-            background: var(--bg-base);
-            color: var(--text-main);
-            margin: 0;
-            padding: 32px;
-            height: 100vh;
+        .page-body {
+            padding: 24px 32px;
+            flex: 1;
             display: flex;
             flex-direction: column;
-        }
-
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 24px;
-            margin-bottom: 32px;
-        }
-
-        .title {
-            font-size: 18px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 12px;
+            overflow: hidden;
         }
 
         .dashboard-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 32px;
+            gap: 24px;
             flex: 1;
             overflow: hidden;
         }
@@ -65,105 +37,108 @@
         }
 
         .col-header {
-            padding: 16px 24px;
+            padding: 14px 20px;
             border-bottom: 1px solid var(--border);
             font-family: var(--font-mono);
-            font-size: 13px;
+            font-size: 12px;
             color: var(--text-muted);
             display: flex;
             justify-content: space-between;
         }
 
         .ticket-list {
-            padding: 24px;
+            padding: 20px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 14px;
         }
 
         .ticket-card {
             background: var(--bg-panel);
             border: 1px solid var(--border);
             border-radius: 6px;
-            padding: 16px;
+            padding: 14px;
         }
 
         .t-head {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             font-family: var(--font-mono);
-            font-size: 12px;
+            font-size: 11px;
             color: var(--text-muted);
         }
 
-        .t-summary {
-            font-size: 15px;
-            line-height: 1.5;
-            margin-bottom: 16px;
-        }
+        .t-summary { font-size: 14px; line-height: 1.5; margin-bottom: 14px; }
 
-        .t-actions {
-            display: flex;
-            gap: 8px;
-        }
+        .t-actions { display: flex; gap: 8px; }
 
-        button {
+        button.tk-btn {
             background: var(--text-main);
             color: #000;
             border: none;
-            padding: 8px 16px;
+            padding: 7px 14px;
             border-radius: 4px;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 500;
             cursor: pointer;
         }
 
-        button.outline {
-            background: transparent;
-            color: var(--text-main);
-            border: 1px solid var(--border);
+        button.tk-btn:hover { opacity: 0.85; }
+        button.tk-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .empty-state {
+            color: #52525b;
+            text-align: center;
+            margin-top: 40px;
+            font-family: var(--font-mono);
+            font-size: 13px;
         }
     </style>
 </head>
 <body>
-    <header>
-        <div class="title">
-            <div style="width: 8px; height: 8px; background: var(--warning); border-radius: 50%;"></div>
-            TACKETY // AGENT WORKSPACE
-        </div>
-        <div style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">v.0.1.0-alpha</div>
-    </header>
+    <div id="tk-nav-root"></div>
+    <div class="tk-explainer">
+        <strong>What this page shows:</strong> non-technical tickets (refunds, billing, account questions) and live human-handover requests from <code>GET /support/queue</code>.
+        <strong>Resolve</strong> calls <code>POST /support/cases/{id}/resolve</code> and removes the case from the queue.
+        A real deployment would also let you open the full conversation transcript here (<code>GET /session/{id}/history</code>) - not wired up in this demo yet.
+    </div>
 
-    <div class="dashboard-grid">
-        <div class="column">
-            <div class="col-header">
-                <span>NON-TECHNICAL TICKETS</span>
-                <span id="t-count">0</span>
+    <div class="page-body">
+        <div class="dashboard-grid">
+            <div class="column">
+                <div class="col-header">
+                    <span>NON-TECHNICAL TICKETS</span>
+                    <span id="t-count">0</span>
+                </div>
+                <div class="ticket-list" id="ticket-queue"></div>
             </div>
-            <div class="ticket-list" id="ticket-queue">
-                <!-- Dynamically populated -->
-            </div>
-        </div>
 
-        <div class="column">
-            <div class="col-header">
-                <span style="color: var(--warning);">LIVE HANDOVERS</span>
-                <span id="h-count">0</span>
-            </div>
-            <div class="ticket-list" id="handover-queue">
-                 <!-- Dynamically populated -->
+            <div class="column">
+                <div class="col-header">
+                    <span style="color: var(--warning);">LIVE HANDOVERS</span>
+                    <span id="h-count">0</span>
+                </div>
+                <div class="ticket-list" id="handover-queue"></div>
             </div>
         </div>
     </div>
 
+    <script src="shared.js"></script>
     <script>
+        TK.renderNav('agent');
+
         async function loadQueue() {
             try {
-                const res = await fetch('http://localhost:8000/support/queue');
-                const data = await res.json();
-                
+                const res = await TK.authFetch('/support/queue');
+                if (res.status === 401) {
+                    const msg = '<div class="empty-state">401 - set a valid X-API-Key in the nav bar above.</div>';
+                    document.getElementById('ticket-queue').innerHTML = msg;
+                    document.getElementById('handover-queue').innerHTML = msg;
+                    return;
+                }
+                const data = await TK.safeJson(res);
                 const supportCases = data.support_cases || {};
                 const tickets = supportCases.NON_TECHNICAL_TICKETS || [];
                 const handovers = supportCases.CHAT_HANDOVERS || [];
@@ -172,8 +147,7 @@
                 document.getElementById('h-count').textContent = handovers.length;
 
                 renderList('ticket-queue', tickets, 'Resolve Ticket');
-                renderList('handover-queue', handovers, 'Take Over Console');
-
+                renderList('handover-queue', handovers, 'Resolve Handover');
             } catch (e) {
                 console.error('Failed to load queue', e);
             }
@@ -181,29 +155,46 @@
 
         function renderList(elementId, items, actionText) {
             const container = document.getElementById(elementId);
-            container.innerHTML = items.length === 0 ? '<div style="color: #52525b; text-align: center; margin-top: 40px; font-family: monospace;">QUEUE EMPTY</div>' : '';
-            
-            items.forEach(item => {
-                const sid = item.session_id.substring(0, 8);
-                const html = `
+            if (items.length === 0) {
+                container.innerHTML = '<div class="empty-state">QUEUE EMPTY</div>';
+                return;
+            }
+
+            container.innerHTML = items.map(item => {
+                const sid = item.session_id ? item.session_id.substring(0, 8) : 'unknown';
+                const ts = item.created_at ? new Date(item.created_at + 'Z').toLocaleString() : '';
+                return `
                     <div class="ticket-card">
                         <div class="t-head">
-                            <span>SID: ${sid}</span>
-                            <span>${new Date(item.timestamp).toLocaleTimeString()}</span>
+                            <span>SID: ${TK.escapeHtml(sid)}</span>
+                            <span>${TK.escapeHtml(ts)}</span>
                         </div>
-                        <div class="t-summary">${item.summary}</div>
+                        <div class="t-summary">${TK.escapeHtml(item.summary)}</div>
                         <div class="t-actions">
-                            <button>${actionText}</button>
-                            <button class="outline">View Context</button>
+                            <button class="tk-btn" onclick="resolveCase(${item.id}, this)">${actionText}</button>
                         </div>
                     </div>
                 `;
-                container.innerHTML += html;
-            });
+            }).join('');
         }
 
+        async function resolveCase(id, btn) {
+            btn.disabled = true;
+            try {
+                const res = await TK.authFetch(`/support/cases/${id}/resolve`, { method: 'POST' });
+                const data = await TK.safeJson(res);
+                if (!res.ok) throw new Error(data.detail || 'Failed');
+                TK.toast(`Case ${id} resolved.`, 'success');
+                loadQueue();
+            } catch (e) {
+                TK.toast(`Failed to resolve case ${id}: ${e.message}`, 'error');
+                btn.disabled = false;
+            }
+        }
+
+        window.onApiKeyChanged = loadQueue;
         loadQueue();
-        setInterval(loadQueue, 5000); // Poll every 5 seconds
+        setInterval(loadQueue, 5000);
     </script>
 </body>
 </html>
