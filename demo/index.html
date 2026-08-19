@@ -9,52 +9,19 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
         rel="stylesheet">
+    <link rel="stylesheet" href="shared.css">
     <style>
-        :root {
-            --bg-base: #09090b;
-            --bg-panel: #18181b;
-            --bg-hover: #27272a;
-            --border: #27272a;
-            --text-main: #f4f4f5;
-            --text-muted: #a1a1aa;
-            --text-code: #d4d4d8;
-            --accent: #ffffff;
-            --accent-bg: #27272a;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --font-ui: 'Inter', -apple-system, sans-serif;
-            --font-mono: 'JetBrains Mono', monospace;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        html, body { height: 100%; }
 
         body {
-            font-family: var(--font-ui);
-            background: var(--bg-base);
-            color: var(--text-main);
-            height: 100vh;
             display: flex;
-            align-items: center;
-            justify-content: center;
+            flex-direction: column;
             overflow: hidden;
-            -webkit-font-smoothing: antialiased;
         }
 
         .layout-wrapper {
-            width: 100%;
-            max-width: 1000px;
-            height: 85vh;
-            max-height: 800px;
+            flex: 1;
             display: flex;
-            background: var(--bg-base);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
             overflow: hidden;
         }
 
@@ -65,19 +32,44 @@
             border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
-            padding: 24px;
+            padding: 20px;
             font-family: var(--font-mono);
             font-size: 13px;
+            flex-shrink: 0;
         }
 
         .sidebar-header {
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            margin-bottom: 24px;
+            margin-bottom: 18px;
             font-weight: 500;
             display: flex;
             justify-content: space-between;
+        }
+
+        .email-field {
+            margin-bottom: 18px;
+        }
+
+        .email-field label {
+            display: block;
+            color: var(--text-muted);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+        }
+
+        .email-field input {
+            width: 100%;
+            background: #000;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            font-family: var(--font-mono);
+            font-size: 12px;
+            padding: 8px 10px;
+            border-radius: 4px;
         }
 
         .log-stream {
@@ -86,38 +78,17 @@
             color: var(--text-muted);
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 10px;
         }
 
-        .log-stream::-webkit-scrollbar {
-            width: 4px;
-        }
+        .log-stream::-webkit-scrollbar { width: 4px; }
+        .log-stream::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
-        .log-stream::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 4px;
-        }
-
-        .log-entry {
-            line-height: 1.5;
-            word-break: break-all;
-        }
-
-        .log-entry.system {
-            color: var(--text-code);
-        }
-
-        .log-entry.success {
-            color: var(--success);
-        }
-
-        .log-entry.warning {
-            color: var(--warning);
-        }
-
-        .log-entry.highlight {
-            color: var(--accent);
-        }
+        .log-entry { line-height: 1.5; word-break: break-all; }
+        .log-entry.system { color: var(--text-code); }
+        .log-entry.success { color: var(--success); }
+        .log-entry.warning { color: var(--warning); }
+        .log-entry.highlight { color: var(--accent); }
 
         /* Main Chat Area */
         .chat-container {
@@ -126,10 +97,11 @@
             flex-direction: column;
             background: var(--bg-base);
             position: relative;
+            overflow: hidden;
         }
 
         .chat-header {
-            padding: 18px 24px;
+            padding: 14px 24px;
             border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
@@ -159,19 +131,12 @@
             padding: 24px;
             display: flex;
             flex-direction: column;
-            gap: 24px;
+            gap: 20px;
         }
 
-        .chat-messages::-webkit-scrollbar {
-            width: 4px;
-        }
+        .chat-messages::-webkit-scrollbar { width: 4px; }
+        .chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
-        .chat-messages::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 4px;
-        }
-
-        /* Messages */
         .message {
             display: flex;
             flex-direction: column;
@@ -180,25 +145,12 @@
         }
 
         @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(4px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        .message.user {
-            align-self: flex-end;
-            align-items: flex-end;
-        }
-
-        .message.assistant {
-            align-self: flex-start;
-        }
+        .message.user { align-self: flex-end; align-items: flex-end; }
+        .message.assistant { align-self: flex-start; }
 
         .message-content {
             padding: 12px 16px;
@@ -221,15 +173,14 @@
             border-bottom-left-radius: 2px;
         }
 
-        /* Ticket Card (Structured JSON visual) */
         .ticket-card {
-            margin-top: 12px;
+            margin-top: 10px;
             background: #000;
             border: 1px solid var(--border);
             border-radius: 6px;
-            padding: 16px;
+            padding: 14px;
             font-family: var(--font-mono);
-            font-size: 13px;
+            font-size: 12.5px;
             color: var(--text-code);
             width: 100%;
         }
@@ -237,34 +188,19 @@
         .ticket-card-header {
             display: flex;
             align-items: center;
-            gap: 8px;
+            justify-content: space-between;
             color: var(--text-muted);
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             text-transform: uppercase;
-            font-size: 11px;
+            font-size: 10.5px;
             letter-spacing: 0.05em;
         }
 
-        .ticket-card-row {
-            display: flex;
-            margin-bottom: 6px;
-        }
+        .ticket-card-row { display: flex; margin-bottom: 5px; }
+        .ticket-card-key { color: var(--text-muted); width: 130px; flex-shrink: 0; }
+        .ticket-card-val.string { color: var(--success); }
+        .ticket-card-val.number { color: var(--warning); }
 
-        .ticket-card-key {
-            color: var(--text-muted);
-            width: 140px;
-            flex-shrink: 0;
-        }
-
-        .ticket-card-val.string {
-            color: var(--success);
-        }
-
-        .ticket-card-val.number {
-            color: var(--warning);
-        }
-
-        /* Typing & Input */
         .typing-indicator {
             display: none;
             padding: 12px 16px;
@@ -280,9 +216,7 @@
             margin-bottom: 16px;
         }
 
-        .typing-indicator.active {
-            display: block;
-        }
+        .typing-indicator.active { display: block; }
 
         .blink-cursor {
             display: inline-block;
@@ -294,14 +228,10 @@
             animation: blink 1s step-end infinite;
         }
 
-        @keyframes blink {
-            50% {
-                opacity: 0;
-            }
-        }
+        @keyframes blink { 50% { opacity: 0; } }
 
         .chat-input-area {
-            padding: 24px;
+            padding: 20px 24px;
             background: var(--bg-base);
             border-top: 1px solid var(--border);
             display: flex;
@@ -318,9 +248,7 @@
             transition: border-color 0.2s;
         }
 
-        .input-wrapper:focus-within {
-            border-color: #52525b;
-        }
+        .input-wrapper:focus-within { border-color: #52525b; }
 
         .input-wrapper input {
             flex: 1;
@@ -333,9 +261,7 @@
             padding: 12px 16px;
         }
 
-        .input-wrapper input::placeholder {
-            color: var(--text-muted);
-        }
+        .input-wrapper input::placeholder { color: var(--text-muted); }
 
         .send-btn {
             background: var(--text-main);
@@ -350,28 +276,20 @@
             transition: opacity 0.2s;
         }
 
-        .send-btn:hover {
-            opacity: 0.9;
-        }
-
-        .send-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
+        .send-btn:hover { opacity: 0.9; }
+        .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .error-banner {
             display: none;
-            padding: 12px 24px;
+            padding: 10px 24px;
             background: rgba(239, 68, 68, 0.1);
             color: var(--danger);
             border-bottom: 1px solid rgba(239, 68, 68, 0.2);
-            font-size: 14px;
+            font-size: 13.5px;
             text-align: center;
         }
 
-        .error-banner.active {
-            display: block;
-        }
+        .error-banner.active { display: block; }
 
         .welcome-msg {
             text-align: center;
@@ -379,10 +297,23 @@
             color: var(--text-muted);
             font-size: 15px;
         }
+
+        .hint {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 8px;
+            text-align: center;
+        }
     </style>
 </head>
 
 <body>
+    <div id="tk-nav-root"></div>
+    <div class="tk-explainer">
+        <strong>What this page does:</strong> talks to <code>POST /session/message</code> - the chatbot decides RESOLVING / RESOLVED / RAISE_TICKET / ESCALATE_HUMAN on every turn and this page shows you that decision directly, including the raw JSON, so nothing about the routing is hidden.
+        Try: a technical bug ("checkout crashes"), a billing question ("I want a refund"), or "let me talk to a human".
+    </div>
+
     <div class="layout-wrapper">
         <!-- Sidebar Debug Panel -->
         <div class="sidebar">
@@ -390,8 +321,11 @@
                 <span>Engine Stream</span>
                 <span style="color: var(--success); font-family: var(--font-ui); font-size: 11px;">● LIVE</span>
             </div>
-            <div class="log-stream" id="logStream">
+            <div class="email-field">
+                <label for="customerEmail">Customer Email (optional)</label>
+                <input type="email" id="customerEmail" placeholder="customer@example.com" autocomplete="off">
             </div>
+            <div class="log-stream" id="logStream"></div>
         </div>
 
         <!-- Chat Interface -->
@@ -424,12 +358,15 @@
                         autofocus>
                     <button class="send-btn" id="sendBtn">Send</button>
                 </div>
+                <div class="hint">Ctrl+Shift+Z resets the session. Each send generates a fresh Idempotency-Key (visible in the engine stream).</div>
             </div>
         </div>
     </div>
 
+    <script src="shared.js"></script>
     <script>
-        const API_BASE = "http://localhost:8000";
+        TK.renderNav('chat');
+
         const chatMessages = document.getElementById('chatMessages');
         const messageInput = document.getElementById('messageInput');
         const sendBtn = document.getElementById('sendBtn');
@@ -438,9 +375,20 @@
         const errorBanner = document.getElementById('errorBanner');
         const logStream = document.getElementById('logStream');
         const sessionIdDisplay = document.getElementById('sessionIdDisplay');
+        const customerEmailInput = document.getElementById('customerEmail');
 
         let sessionId = localStorage.getItem('tackety_session_id');
         let isLoading = false;
+
+        // Deliberately NOT persisted to localStorage: this is customer PII
+        // with no retention policy, and localStorage is shared across every
+        // session that reuses this browser profile - it would leak the
+        // previous customer's email into the next person's chat. Kept in
+        // page memory only; it's gone on refresh, same as the message text.
+
+        function genId() {
+            return (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+        }
 
         function addLog(text, type = 'system') {
             const entry = document.createElement('div');
@@ -452,20 +400,21 @@
         }
 
         async function initSession() {
-            addLog('Initializing Tackety Engine v0.1...', 'system');
-            addLog('Product doc vectors loaded.', 'system');
+            addLog('Initializing Tackety Engine...', 'system');
 
             if (sessionId) {
                 try {
-                    const res = await fetch(`${API_BASE}/session/${sessionId}/history`);
-                    const data = await res.json();
-                    if (data.messages && data.messages.length > 0) {
-                        welcomeCard.style.display = 'none';
-                        sessionIdDisplay.textContent = `ID: ${sessionId.split('-')[0]}`;
-                        addLog(`Restoring session ${sessionId.split('-')[0]}...`, 'highlight');
-                        data.messages.forEach(m => appendMessage(m.role, m.content, false));
-                        scrollToBottom();
-                        return;
+                    const res = await fetch(`${TK.API_BASE}/session/${sessionId}/history`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.messages && data.messages.length > 0) {
+                            welcomeCard.style.display = 'none';
+                            sessionIdDisplay.textContent = `ID: ${sessionId.split('-')[0]}`;
+                            addLog(`Restoring session ${sessionId.split('-')[0]}...`, 'highlight');
+                            data.messages.forEach(m => appendMessage(m.role, m.content, false));
+                            scrollToBottom();
+                            return;
+                        }
                     }
                 } catch (e) {
                     addLog('Session check failed, creating new.', 'system');
@@ -477,7 +426,7 @@
         async function createNewSession() {
             try {
                 addLog('Requesting new session allocation...', 'system');
-                const res = await fetch(`${API_BASE}/session/start`, {
+                const res = await fetch(`${TK.API_BASE}/session/start`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({})
@@ -489,8 +438,8 @@
                 addLog(`Session created: ${sessionId}`, 'success');
                 hideError();
             } catch (e) {
-                showError('Cannot connect to server. Ensure API is running.');
-                addLog('Connection refused on port 8000.', 'warning');
+                showError('Cannot connect to server. Ensure the API is running on ' + TK.API_BASE);
+                addLog('Connection refused.', 'warning');
                 sessionIdDisplay.textContent = '[Offline]';
             }
         }
@@ -507,32 +456,45 @@
             isLoading = true;
             sendBtn.disabled = true;
             typingIndicator.classList.add('active');
-            addLog('Received input, sending to classifier...', 'system');
+
+            const idempotencyKey = genId();
+            addLog(`Sending. Idempotency-Key: ${idempotencyKey.slice(0, 8)}...`, 'system');
             scrollToBottom();
 
             try {
-                const res = await fetch(`${API_BASE}/session/message`, {
+                const res = await fetch(`${TK.API_BASE}/session/message`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ session_id: sessionId, message: text })
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Idempotency-Key': idempotencyKey
+                    },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        message: text,
+                        customer_email: customerEmailInput.value || null
+                    })
                 });
-                const data = await res.json();
+                const data = await TK.safeJson(res);
                 typingIndicator.classList.remove('active');
+
+                if (!res.ok) {
+                    showError(data.detail || `Server error (${res.status})`);
+                    addLog(`Request failed: ${res.status} - ${data.detail || 'no detail'}`, 'warning');
+                    return;
+                }
 
                 const sessionStatus = data.session_status || 'RESOLVING';
                 addLog(`Classifier state: ${sessionStatus}`, 'highlight');
 
                 if (data.routing) {
                     addLog(`Engine routing triggered: ${data.routing.type}`, 'success');
-                    appendMessage('assistant', data.response, true, data.routing);
-                } else {
-                    appendMessage('assistant', data.response);
                 }
+                appendMessage('assistant', data.response, true, data.routing, data);
 
             } catch (e) {
                 typingIndicator.classList.remove('active');
-                showError('Failed to get response.');
-                addLog('API request failed timeout/error.', 'warning');
+                showError('Failed to reach the server.');
+                addLog('API request failed (timeout or network error).', 'warning');
             } finally {
                 isLoading = false;
                 sendBtn.disabled = false;
@@ -541,76 +503,49 @@
             }
         }
 
-        function appendMessage(role, content, animate = true, routingData = null) {
+        function appendMessage(role, content, animate = true, routingData = null, rawResponse = null) {
             const msg = document.createElement('div');
             msg.className = `message ${role}`;
             if (!animate) msg.style.animation = 'none';
 
-            let innerHtml = `<div class="message-content">${escapeHtml(content)}</div>`;
+            let innerHtml = `<div class="message-content">${TK.escapeHtml(content)}</div>`;
 
-            // Dynamic ticket render from routing metadata
             if (routingData && role === 'assistant') {
                 let cardRows = '';
-                
+
                 if (routingData.type === 'TECHNICAL') {
                     cardRows = `
-                    <div class="ticket-card-row">
-                        <span class="ticket-card-key">cluster_id:</span>
-                        <span class="ticket-card-val number">${routingData.cluster_id}</span>
-                    </div>
-                    <div class="ticket-card-row">
-                        <span class="ticket-card-key">issue_slug:</span>
-                        <span class="ticket-card-val string">"${routingData.slug}"</span>
-                    </div>
-                    <div class="ticket-card-row">
-                        <span class="ticket-card-key">urgency:</span>
-                        <span class="ticket-card-val string">"${routingData.urgency}"</span>
-                    </div>`;
+                    <div class="ticket-card-row"><span class="ticket-card-key">cluster_id:</span><span class="ticket-card-val number">${TK.escapeHtml(routingData.cluster_id)}</span></div>
+                    <div class="ticket-card-row"><span class="ticket-card-key">issue_slug:</span><span class="ticket-card-val string">"${TK.escapeHtml(routingData.slug)}"</span></div>
+                    <div class="ticket-card-row"><span class="ticket-card-key">urgency:</span><span class="ticket-card-val string">"${TK.escapeHtml(routingData.urgency)}"</span></div>`;
                 } else if (routingData.type === 'NON_TECHNICAL') {
                     cardRows = `
-                    <div class="ticket-card-row">
-                        <span class="ticket-card-key">hub_queue:</span>
-                        <span class="ticket-card-val string">"NON_TECHNICAL_TICKETS"</span>
-                    </div>
-                    <div class="ticket-card-row">
-                        <span class="ticket-card-key">status:</span>
-                        <span class="ticket-card-val string">"PENDING_REVIEW"</span>
-                    </div>`;
+                    <div class="ticket-card-row"><span class="ticket-card-key">hub_queue:</span><span class="ticket-card-val string">"NON_TECHNICAL_TICKETS"</span></div>
+                    <div class="ticket-card-row"><span class="ticket-card-key">status:</span><span class="ticket-card-val string">"PENDING_REVIEW"</span></div>`;
                 } else if (routingData.type === 'HANDOVER') {
                     cardRows = `
-                    <div class="ticket-card-row">
-                        <span class="ticket-card-key">hub_queue:</span>
-                        <span class="ticket-card-val string">"ACTIVE_HANDOVERS"</span>
-                    </div>
-                    <div class="ticket-card-row">
-                        <span class="ticket-card-key">action:</span>
-                        <span class="ticket-card-val string">"WAITING_FOR_AGENT"</span>
-                    </div>`;
+                    <div class="ticket-card-row"><span class="ticket-card-key">hub_queue:</span><span class="ticket-card-val string">"ACTIVE_HANDOVERS"</span></div>
+                    <div class="ticket-card-row"><span class="ticket-card-key">action:</span><span class="ticket-card-val string">"WAITING_FOR_AGENT"</span></div>`;
                 }
 
                 innerHtml += `
                 <div class="ticket-card">
                     <div class="ticket-card-header">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 2px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                        TACKETY ENGINE RECORD
+                        <span>TACKETY ENGINE RECORD</span>
+                        <button class="tk-raw-toggle" onclick="this.closest('.ticket-card').querySelector('.tk-raw-json').classList.toggle('open')">raw json</button>
                     </div>
                     ${cardRows}
+                    <div class="tk-raw-json">${TK.escapeHtml(JSON.stringify(rawResponse, null, 2))}</div>
                 </div>`;
             }
 
             msg.innerHTML = innerHtml;
             chatMessages.appendChild(msg);
             scrollToBottom();
-
-            if (role === 'user') {
-                addLog(`User msg len: ${content.length} chars`, 'system');
-            }
         }
 
         function scrollToBottom() {
-            requestAnimationFrame(() => {
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-            });
+            requestAnimationFrame(() => { chatMessages.scrollTop = chatMessages.scrollHeight; });
         }
 
         function showError(text) {
@@ -620,12 +555,6 @@
 
         function hideError() {
             errorBanner.classList.remove('active');
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
         }
 
         sendBtn.addEventListener('click', sendMessage);

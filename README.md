@@ -31,7 +31,7 @@ Most support systems operate blindly. A minor cosmetic glitch reported on Monday
 
 ## ⚡ Current State
 
-The core engine is **working and runnable today.**
+The core engine is **working and runnable today**, including auth, tests, and a working demo UI.
 
 | Component | Status |
 |-----------|--------|
@@ -39,15 +39,21 @@ The core engine is **working and runnable today.**
 | Stateless AI integration (`call_ai.py`) | ✅ Done |
 | Conversation history reconstruction | ✅ Done |
 | FastAPI backend + session endpoints | ✅ Done |
-| Terminal-style demo UI with engine stream | ✅ Done |
+| Demo UI (chat, developer queue, agent workspace, overview) | ✅ Done |
 | Chatbot with RAG + state classification | ✅ Done |
-| Normalizer (customer → product terminology) | 🔲 In development |
-| Human agent queue (least-loaded allocation) | 🔲 In development |
-| Webhook system (HMAC-signed events) | 🔲 In development |
-| Issue clustering integration | 🔲 In development |
-| Developer dashboard endpoints | 🔲 In development |
+| Normalizer (customer → product terminology) | ✅ Done |
+| Human agent queue (ticket/handover routing + resolution) | ✅ Done |
+| Webhook system (HMAC-signed, SSRF-validated, durable outbox + retry) | ✅ Done |
+| Issue clustering integration | ✅ Done |
+| Developer/agent endpoint auth | ✅ Done |
+| Rate limiting on public chat endpoints | ✅ Done |
+| Automated offline test suite (`pytest`) | ✅ Done |
+| Structured logging + SQLite-consistent backup tooling | ✅ Done |
+| Web UI for knowledge-base setup (upload docs, no CLI needed) | ✅ Done |
+| Async request handling | 🔲 Not started |
+| Idempotency-Key replay across a fully-closed session | 🔲 Known gap, documented in `tests/test_idempotency.py` |
 
-> You can run the demo today. The remaining components are actively being built. Read [`DESIGN.md`](./DESIGN.md) to understand the full architecture and roadmap.
+> You can run the demo today. Read [`DESIGN.md`](./DESIGN.md) to understand the full architecture and roadmap.
 
 ---
 
@@ -103,21 +109,27 @@ After starting the server, open `demo/index.html` to see:
 ### 2. Install dependencies
 
 ```bash
-cd engine
-pip install fastapi uvicorn google-genai python-dotenv sentence-transformers sqlite-vec
+python -m venv .venv
+# Windows: .venv\Scripts\activate    Linux/macOS: source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
 ### 3. Environment variables
 
-Create a `.env` file in the `engine/` directory:
+Copy `engine/.env.example` to `engine/.env` and fill in your AI provider key:
 
 ```env
 AI_API=your_api_key_here
+
+# Optional: protects developer/agent endpoints. If unset, a random key
+# is generated and printed to the console on every server start instead.
+TACKETY_API_KEY=some-long-random-string
 ```
 
 ### 4. Run the server
 
 ```bash
+cd engine
 python api.py
 ```
 
@@ -125,20 +137,27 @@ Server starts at `http://localhost:8000`. Interactive API docs at `http://localh
 
 ### 5. Open the demo
 
-Open `demo/index.html` in your browser while the server is running.
+Open `http://localhost:8000/demo/master.html` in your browser while the server is running - it links to the chat, developer queue, and agent workspace pages, and includes a **Knowledge Base Setup** panel so you can upload your company/product/policy docs without touching the CLI. Paste your API key into the nav bar once (see [`SETUP.md`](./SETUP.md) for details).
+
+> No Docker image is provided. The app's baseline memory footprint (~400MB, mostly the embedding model) plus a container runtime's own overhead doesn't fit the small self-hosted deployments this project targets well - see `DESIGN.md`'s decisions log for the full reasoning. Run it as a plain Python process (above), behind whatever process supervisor and reverse proxy you already use.
 
 ---
 
 ## 🔌 Key Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/session/start` | Create a new conversation session |
-| `POST` | `/session/message` | Send a message, get AI response |
-| `GET` | `/session/{id}/history` | Retrieve full message history |
-| `GET` | `/health` | Health check |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/session/start` | none, rate-limited | Create a new conversation session |
+| `POST` | `/session/message` | none, rate-limited | Send a message, get AI response |
+| `GET` | `/session/{id}/history` | none | Retrieve full message history |
+| `GET` | `/health` | none | Health check |
+| `GET` | `/support/queue` | `X-API-Key` | Ranked technical clusters + open support cases |
+| `POST` | `/clusters/{id}/resolve` | `X-API-Key` | Resolve a cluster, queue customer notifications |
+| `POST` | `/support/cases/{id}/resolve` | `X-API-Key` | Resolve a non-technical ticket or handover |
+| `POST` | `/setup/webhook` | `X-API-Key` | Register a webhook (SSRF-validated URL) |
+| `GET` | `/webhooks/outbox` | `X-API-Key` | Webhook delivery status - pending/delivered/failed |
 
-Full endpoint documentation in [`engine/README.md`](./engine/README.md).
+Full endpoint documentation, including request/response examples, in [`SETUP.md`](./SETUP.md).
 
 ---
 

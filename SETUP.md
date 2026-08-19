@@ -10,15 +10,22 @@ Welcome to the Tackety Issue Engine. This guide provides step-by-step instructio
 
 Ensure your environment is ready before starting:
 
-1. **Python 3.10+**
-2. **Install Core Dependencies**:
+1. **Python 3.10+** (3.10 and 3.12 are both verified working; if you have multiple versions installed, prefer 3.10)
+2. **Create a virtual environment and install dependencies**:
    ```bash
-   pip install fastapi uvicorn google-genai python-dotenv sqlite-vec sentence-transformers pypdf
+   python -m venv .venv
+   # Windows: .venv\Scripts\activate    Linux/macOS: source .venv/bin/activate
+   pip install -r requirements.txt
    ```
-3. **API Keys**: Create an `.env` file in the `engine/` directory and add your LLM API key.
+3. **Environment file**: copy `engine/.env.example` to `engine/.env` and fill in your values.
    ```env
    AI_API=your_gemini_api_key_here
+
+   # Optional but recommended for anything beyond a quick local demo - see
+   # step 3 below for what happens if you skip this.
+   TACKETY_API_KEY=some-long-random-string
    ```
+   `engine/.env` is gitignored - never commit it with a real key in it.
 
 ---
 
@@ -59,6 +66,16 @@ python api.py
 ```
 *The engine will now be active at `http://localhost:8000`.*
 
+If you didn't set `TACKETY_API_KEY` in step 1, the server generates a random one on every start and prints it to the console - copy it from there (it changes on every restart, so set it explicitly in `engine/.env` for anything you want to keep using across restarts).
+
+### Running the test suite
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+The tests run entirely offline against an in-memory-style temp database - no live server, no real AI provider key needed. `tests/live_smoke.py` is a separate, manual live-server check (see the docstring at the top of that file for how to run it).
+
 ---
 
 ## 4. Integrating with FastAPI (Endpoints)
@@ -69,6 +86,9 @@ Once the engine is running, you can interact with it programmatically.
 > You can view the interactive FastAPI schema and test endpoints directly at `http://localhost:8000/docs`.
 
 ### Core Flow: The Chat Client
+
+> [!NOTE]
+> `/session/start` and `/session/message` are rate-limited per client IP (default 30 requests/minute - each `/session/message` call costs a real LLM request, so this is a cost guard, not just a load guard). Override with `TACKETY_RATE_LIMIT_PER_MINUTE` in `engine/.env`. Exceeding it returns `429`.
 
 **1. Start a Session**
 A new user connects to your support widget.
@@ -111,24 +131,120 @@ Content-Type: application/json
 
 ### Core Flow: Dashboard & Webhooks
 
+> [!IMPORTANT]
+> Every endpoint below requires an `X-API-Key` header matching your `TACKETY_API_KEY` (see section 1). The customer-facing `/session/*` endpoints above do not.
+
 **1. Poll the Engine State**
 Your agent and admin dashboards can retrieve real-time clustered intelligence:
 ```http
 GET /support/queue
+X-API-Key: your-tackety-api-key
 ```
 *Returns arrays of `technical_clusters` and manual `support_cases`.*
 
-**2. Listen to Webhooks**
-Tackety uses generic, HMAC-SHA256 signed webhooks to push events to your infrastructure.
-*   Configure the endpoints in `engine/webhooks.py`.
-*   Supported Events: `ticket.created`, `support.ticket_raised`, `handoff.initiated`.
+**2. Resolve a Cluster or Case**
+```http
+POST /clusters/{cluster_id}/resolve
+POST /support/cases/{case_id}/resolve
+X-API-Key: your-tackety-api-key
+```
+Resolving a cluster queues a `ticket.resolved` webhook notification for every customer who reported it - "queued", not "sent": see the webhook durability section below for what that means.
+
+**3. Register Webhooks**
+Tackety uses generic, HMAC-SHA256 signed webhooks to push events to your infrastructure. Register an endpoint via the API (not by editing `engine/webhooks.py` directly):
+```http
+POST /setup/webhook
+X-API-Key: your-tackety-api-key
+Content-Type: application/json
+
+{
+    "event": "ticket.created",
+    "url": "https://your-server.example.com/webhooks/tackety",
+    "secret": "a-shared-secret-you-choose"
+}
+```
+Registered URLs are validated and rejected if they resolve to a private, loopback, or link-local address (SSRF protection) - only public `http(s)` targets are accepted.
+*   Supported Events: `ticket.created`, `ticket.resolved`, `support.ticket_raised`, `handoff.initiated`.
+
+**4. Webhook Durability & Delivery Status**
+Every dispatched event is written to a durable outbox *before* delivery is attempted - a webhook receiver that's down doesn't lose the event. A background thread retries failed deliveries with exponential backoff (30s, 60s, 120s, ... capped at 1hr) for up to 8 attempts, after which the entry is marked `failed` and stays visible (it is not deleted or retried further):
+```http
+GET /webhooks/outbox?limit=100
+X-API-Key: your-tackety-api-key
+```
+Returns recent entries with `status` (`pending` / `delivered` / `failed`), `attempts`, and `last_error`. The Developer Queue demo page shows this live in a collapsible bar at the bottom. Retry timing is configurable via `TACKETY_WEBHOOK_RETRY_INTERVAL` (seconds between background sweeps, default 30) in `engine/.env`.
 
 ---
 
 ## 5. View the Demo UIs
 
-To see the engine in action, open the following files in your browser (while the engine is running):
+While the engine is running, open `http://localhost:8000/demo/master.html` (or any of the pages below directly - they're all linked from a shared nav bar). Paste your `TACKETY_API_KEY` into the nav bar's key field once; it's remembered per-browser via localStorage.
 
-*   **Customer Chat**: `demo/index.html`
-*   **Agent Workspace**: `demo/agent.html`
-*   **Master Console**: `demo/master.html`
+*   **System Overview**: `demo/master.html` - live counts and an explanation of the routing flow, no fabricated numbers.
+*   **Customer Chat**: `demo/index.html` - talks to the chatbot; shows the raw engine response for every message.
+*   **Developer Queue**: `demo/queue.html` - ranked technical clusters, with a working Resolve action and a live webhook outbox status bar.
+*   **Agent Workspace**: `demo/agent.html` - non-technical tickets and live handovers, with working Resolve actions.
+
+---
+
+## 6. Deployment Notes (No Docker, By Choice)
+
+Tackety deliberately ships **no Docker image**. It was tried and measured: the running server's baseline memory footprint is ~400MB (almost entirely `torch`/`sentence-transformers` loading the embedding model) - fine on a real server, tight on a small self-hosted box, and a container runtime's own overhead on top of that (a Docker Desktop VM easily reserves 2GB on Mac/Windows; even a native Linux daemon adds real overhead) doesn't buy enough to be worth it for the target deployment size here. See `DESIGN.md`'s decisions log for the full reasoning.
+
+Run it as a plain Python process (section 3 above). For anything unattended (not just local testing), put your own process supervisor in front of it (systemd, pm2, supervisor - whatever you already use) and your own reverse proxy in front of that for TLS if it's internet-facing (Caddy, nginx, your cloud provider's load balancer). Neither is bundled here on purpose - it's one more thing this project would otherwise be opinionated about that operators usually already have a preference for.
+
+---
+
+## 7. Backing Up Your Data
+
+All state lives in SQLite files in `engine/data/` (or wherever `TACKETY_DATA_DIR` points). Back them up with:
+
+```bash
+python engine/backup.py                        # -> ./backups/<UTC timestamp>/
+python engine/backup.py --out /path/to/dest     # explicit destination
+```
+
+This uses SQLite's own online backup API, not a raw file copy - the server runs with WAL mode enabled (see `session_manager.py`), and a plain file copy taken while the server is writing can capture the database in an inconsistent state. The backup API produces a consistent snapshot while the live server keeps running and serving requests throughout - safe to run on a schedule (cron, Task Scheduler, etc.) against a live deployment.
+
+It also copies the preprocessed doc-context files (`company_context.txt`, `product_context.txt`, `management_rules.txt`) alongside the databases, since regenerating those requires re-running `setup_docs.py` against your original source documents.
+
+**Restoring**: stop the server, copy the backed-up files back into `engine/data/` (or your `TACKETY_DATA_DIR`), restart.
+
+---
+
+## 8. Logging
+
+Server-side logging uses Python's standard `logging` module (level `INFO` by default), replacing the old bare `print()` statements throughout the request-handling code. Log lines are tagged by module (`tackety.router`, `tackety.webhooks`, `tackety.support_hub`, `tackety.normalizer`, etc.) so you can filter by component. There's no separate log-level environment variable yet - if you need `DEBUG`-level output, edit the `logging.basicConfig(level=...)` call at the top of `engine/api.py`.
+
+`setup_docs.py`'s own progress messages (run when you (re)process your knowledge base) intentionally stay as plain `print()` output - that script is a one-shot CLI tool a human runs and watches, not a long-running server process.
+
+---
+
+## 9. Updating an Existing Deployment
+
+### Pulling and pushing changes (git)
+
+```bash
+git pull origin dev-sprint-engine-completion   # or main, whichever you're tracking
+```
+
+If you're contributing back, see [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the branching/PR workflow. If you're just running your own fork/instance and pushing your own changes:
+
+```bash
+git add <files>
+git commit -m "..."
+git push origin <your-branch>
+```
+
+There's nothing Tackety-specific about this beyond: **back up first** (see section 7) if the update touches anything in `engine/` - a schema change (new column, new table) is applied automatically on next startup (every `_init_db()` uses `CREATE TABLE IF NOT EXISTS` / defensive `ALTER TABLE` with an `OperationalError` catch), but a backup means you can always roll back if something's wrong.
+
+### Redeploying after pulling changes
+
+```bash
+git pull
+pip install -r requirements.txt   # in case dependencies changed
+# stop the running server (Ctrl+C, or however you're managing the process), then:
+cd engine && python api.py
+```
+
+If you're running the server unattended, use whatever process supervisor you already run other services under (systemd, pm2, supervisor, ...) so it comes back up after a crash or host reboot without you needing to be there - not bundled here, see section 6.

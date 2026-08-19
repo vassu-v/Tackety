@@ -3,3 +3,7 @@ engine/.env
 __pycache__/
 engine/data/
 *.db
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/

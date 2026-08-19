@@ -1,0 +1,9 @@
+fastapi>=0.109.1  # 0.100.0-0.109.0 have a HIGH-severity Content-Type header ReDoS (patched in 0.109.1)
+uvicorn
+google-genai
+python-dotenv
+sentence-transformers
+sqlite-vec
+pydantic
+pypdf
+python-multipart  # required by FastAPI for multipart/form-data (file uploads) on POST /setup/docs
