@@ -107,6 +107,75 @@
             background: rgba(245,158,11,0.12);
             color: var(--warning);
         }
+
+        .badge.missing {
+            background: rgba(239,68,68,0.12);
+            color: var(--danger);
+        }
+
+        .setup-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .doc-slot {
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 14px;
+        }
+
+        .doc-slot-title {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .doc-slot-desc {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .doc-slot input[type="file"] {
+            font-size: 11px;
+            color: var(--text-muted);
+            width: 100%;
+        }
+
+        .doc-slot-meta {
+            font-family: var(--font-mono);
+            font-size: 10.5px;
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+
+        .setup-btn {
+            background: var(--text-main);
+            color: #000;
+            border: none;
+            padding: 9px 18px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .setup-btn:hover { opacity: 0.85; }
+        .setup-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .setup-results {
+            margin-top: 14px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            line-height: 1.7;
+        }
+
+        .setup-result-row.success { color: var(--success); }
+        .setup-result-row.error { color: var(--danger); }
     </style>
 </head>
 <body>
@@ -133,6 +202,36 @@
                 <div class="stat-note">Set it in the nav bar above</div>
             </div>
         </div>
+
+        <section>
+            <h2>Knowledge Base Setup</h2>
+            <p style="font-size: 13px; color: var(--text-muted); margin: -8px 0 16px;">
+                Web-based equivalent of running <code style="font-family: var(--font-mono); background:#000; padding:2px 6px; border-radius:4px;">python engine/setup_docs.py</code> - upload your docs here instead. Each is optional and independent. Takes effect immediately, no restart needed.
+            </p>
+            <div class="setup-grid">
+                <div class="doc-slot">
+                    <div class="doc-slot-title">Company Doc <span class="badge missing" id="badge-company">NOT SET</span></div>
+                    <div class="doc-slot-desc">General knowledge, FAQs, product overview. Injected in full into the chatbot's system prompt.</div>
+                    <input type="file" id="file-company" accept=".pdf,.md,.txt">
+                    <div class="doc-slot-meta" id="meta-company"></div>
+                </div>
+                <div class="doc-slot">
+                    <div class="doc-slot-title">Product Doc <span class="badge missing" id="badge-product">NOT SET</span></div>
+                    <div class="doc-slot-desc">Technical specs, feature names. Powers both terminology mapping and per-message RAG retrieval.</div>
+                    <input type="file" id="file-product" accept=".pdf,.md,.txt">
+                    <div class="doc-slot-meta" id="meta-product"></div>
+                </div>
+                <div class="doc-slot">
+                    <div class="doc-slot-title">Customer Management Doc <span class="badge missing" id="badge-management">NOT SET</span></div>
+                    <div class="doc-slot-desc">Refund rules, escalation triggers, policy guardrails. Injected in full into the chatbot's system prompt.</div>
+                    <input type="file" id="file-management" accept=".pdf,.md,.txt">
+                    <div class="doc-slot-meta" id="meta-management"></div>
+                </div>
+            </div>
+            <button class="setup-btn" id="setup-submit-btn" onclick="submitSetupDocs()">Upload &amp; Process</button>
+            <span style="font-size: 11px; color: var(--text-muted); margin-left: 10px;">Calls your configured AI provider to preprocess each doc - can take a moment per file.</span>
+            <div class="setup-results" id="setup-results"></div>
+        </section>
 
         <section>
             <h2>How a message gets routed</h2>
@@ -172,9 +271,10 @@ session closed</div>
         <section>
             <h2>Try it yourself</h2>
             <div class="setup-steps">
-                1. Open the <a href="index.html" style="color: var(--text-main);">Chat</a> page and describe an issue - try a technical bug ("checkout is crashing") vs. a billing question ("I want a refund") vs. "let me talk to a human". Each routes differently, and the chat page shows you the raw engine response for every message.<br><br>
-                2. Copy the API key printed in the server's console output (or set <code>TACKETY_API_KEY</code> in <code>engine/.env</code> for a stable one) and paste it into the nav bar above.<br><br>
-                3. Open the <a href="queue.html" style="color: var(--text-main);">Developer Queue</a> to see technical clusters ranked by urgency, and the <a href="agent.html" style="color: var(--text-main);">Agent Workspace</a> to see (and resolve) non-technical cases and live handovers.
+                1. Copy the API key printed in the server's console output (or set <code>TACKETY_API_KEY</code> in <code>engine/.env</code> for a stable one) and paste it into the nav bar above.<br><br>
+                2. Upload your company/product/policy docs in the Knowledge Base Setup panel above - without them the chatbot has no context and will answer generically.<br><br>
+                3. Open the <a href="index.html" style="color: var(--text-main);">Chat</a> page and describe an issue - try a technical bug ("checkout is crashing") vs. a billing question ("I want a refund") vs. "let me talk to a human". Each routes differently, and the chat page shows you the raw engine response for every message.<br><br>
+                4. Open the <a href="queue.html" style="color: var(--text-main);">Developer Queue</a> to see technical clusters ranked by urgency, and the <a href="agent.html" style="color: var(--text-main);">Agent Workspace</a> to see (and resolve) non-technical cases and live handovers.
             </div>
         </section>
     </div>
@@ -207,8 +307,95 @@ session closed</div>
             }
         }
 
-        window.onApiKeyChanged = refresh;
+        async function refreshSetupStatus() {
+            try {
+                const res = await TK.authFetch('/setup/docs/status');
+                if (!res.ok) return;
+                const data = await TK.safeJson(res);
+                for (const kind of ['company', 'product', 'management']) {
+                    const badge = document.getElementById(`badge-${kind}`);
+                    const meta = document.getElementById(`meta-${kind}`);
+                    const entry = data[kind];
+                    if (entry && entry.configured) {
+                        badge.textContent = 'SET';
+                        badge.className = 'badge';
+                        meta.textContent = `${entry.size_bytes} bytes · ${TK.formatTimestamp(entry.last_modified)}`;
+                    } else {
+                        badge.textContent = 'NOT SET';
+                        badge.className = 'badge missing';
+                        meta.textContent = '';
+                    }
+                }
+            } catch (e) {
+                // Setup status is a convenience display, not core functionality.
+            }
+        }
+
+        async function submitSetupDocs() {
+            const fields = ['company', 'product', 'management'];
+            const fieldToFormName = { company: 'company_doc', product: 'product_doc', management: 'customer_management_doc' };
+            const formData = new FormData();
+            let anyFile = false;
+
+            for (const kind of fields) {
+                const input = document.getElementById(`file-${kind}`);
+                if (input.files && input.files[0]) {
+                    formData.append(fieldToFormName[kind], input.files[0]);
+                    anyFile = true;
+                }
+            }
+
+            if (!anyFile) {
+                TK.toast('Choose at least one file to upload.', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('setup-submit-btn');
+            const resultsEl = document.getElementById('setup-results');
+            btn.disabled = true;
+            btn.textContent = 'Processing...';
+            resultsEl.innerHTML = '';
+
+            try {
+                const res = await fetch(`${TK.API_BASE}/setup/docs`, {
+                    method: 'POST',
+                    headers: { 'X-API-Key': TK.getApiKey() },
+                    body: formData
+                });
+                const data = await TK.safeJson(res);
+
+                if (res.status === 401) {
+                    TK.toast('401 - set a valid X-API-Key in the nav bar above.', 'error');
+                    return;
+                }
+                if (!res.ok && !data.results) {
+                    TK.toast(data.detail || `Upload failed (${res.status})`, 'error');
+                    return;
+                }
+
+                resultsEl.innerHTML = (data.results || []).map(r => `
+                    <div class="setup-result-row ${r.status}">
+                        ${r.status === 'success' ? '✓' : '✗'} ${TK.escapeHtml(r.field)}:
+                        ${r.status === 'success' ? `processed (${r.chars_extracted} chars extracted)` : TK.escapeHtml(r.detail)}
+                    </div>
+                `).join('');
+
+                const successCount = (data.results || []).filter(r => r.status === 'success').length;
+                if (successCount > 0) {
+                    TK.toast(`${successCount} doc(s) processed and live - no restart needed.`, 'success');
+                }
+                refreshSetupStatus();
+            } catch (e) {
+                TK.toast('Upload failed - check the server is running.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Upload & Process';
+            }
+        }
+
+        window.onApiKeyChanged = () => { refresh(); refreshSetupStatus(); };
         refresh();
+        refreshSetupStatus();
         setInterval(refresh, 6000);
     </script>
 </body>

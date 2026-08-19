@@ -6,3 +6,4 @@ sentence-transformers
 sqlite-vec
 pydantic
 pypdf
+python-multipart  # required by FastAPI for multipart/form-data (file uploads) on POST /setup/docs
