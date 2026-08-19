@@ -138,7 +138,7 @@
                     document.getElementById('handover-queue').innerHTML = msg;
                     return;
                 }
-                const data = await res.json();
+                const data = await TK.safeJson(res);
                 const supportCases = data.support_cases || {};
                 const tickets = supportCases.NON_TECHNICAL_TICKETS || [];
                 const handovers = supportCases.CHAT_HANDOVERS || [];
@@ -182,7 +182,7 @@
             btn.disabled = true;
             try {
                 const res = await TK.authFetch(`/support/cases/${id}/resolve`, { method: 'POST' });
-                const data = await res.json();
+                const data = await TK.safeJson(res);
                 if (!res.ok) throw new Error(data.detail || 'Failed');
                 TK.toast(`Case ${id} resolved.`, 'success');
                 loadQueue();

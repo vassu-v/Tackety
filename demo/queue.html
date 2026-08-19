@@ -199,7 +199,11 @@
                     renderAuthPrompt();
                     return;
                 }
-                const data = await res.json();
+                const data = await TK.safeJson(res);
+                if (!res.ok) {
+                    TK.toast(`Failed to load queue: ${data.detail || res.status}`, 'error');
+                    return;
+                }
                 renderTechnical(data.technical_clusters || []);
                 renderSupport(data.support_cases || {});
             } catch (error) {
@@ -293,7 +297,7 @@
             btn.disabled = true;
             try {
                 const res = await TK.authFetch(`/clusters/${id}/resolve`, { method: 'POST' });
-                const data = await res.json();
+                const data = await TK.safeJson(res);
                 if (!res.ok) throw new Error(data.detail || 'Failed');
                 TK.toast(`Cluster ${id} resolved - ${data.notifications_sent} customer(s) notified.`, 'success');
                 updateDashboard();
@@ -307,7 +311,7 @@
             btn.disabled = true;
             try {
                 const res = await TK.authFetch(`/support/cases/${id}/resolve`, { method: 'POST' });
-                const data = await res.json();
+                const data = await TK.safeJson(res);
                 if (!res.ok) throw new Error(data.detail || 'Failed');
                 TK.toast(`Case ${id} resolved.`, 'success');
                 updateDashboard();

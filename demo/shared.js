@@ -37,6 +37,22 @@ const TK = {
         return res;
     },
 
+    /**
+     * Parses a fetch Response body as JSON, but never throws - a server
+     * error can come back as plain text (e.g. an unhandled exception
+     * before our JSON error handler kicks in, or a proxy/gateway error
+     * page), and a naive res.json() call on that throws a confusing
+     * "Unexpected token" error that masks the real problem.
+     */
+    async safeJson(res) {
+        const text = await res.text();
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            return { detail: text || `Empty response (HTTP ${res.status})` };
+        }
+    },
+
     toast(message, kind = '') {
         let el = document.getElementById('tk-toast');
         if (!el) {

@@ -473,12 +473,12 @@
                         customer_email: customerEmailInput.value || null
                     })
                 });
-                const data = await res.json();
+                const data = await TK.safeJson(res);
                 typingIndicator.classList.remove('active');
 
                 if (!res.ok) {
                     showError(data.detail || `Server error (${res.status})`);
-                    addLog(`Request failed: ${res.status}`, 'warning');
+                    addLog(`Request failed: ${res.status} - ${data.detail || 'no detail'}`, 'warning');
                     return;
                 }
 

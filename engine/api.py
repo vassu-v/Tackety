@@ -1,17 +1,23 @@
 import sys
 import os
+import logging
+import traceback
 
 # Add project root to path so engine imports work
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from datetime import datetime, timezone
-from fastapi import FastAPI, HTTPException, Depends, Header
+from fastapi import FastAPI, HTTPException, Depends, Header, Request
+from fastapi.responses import JSONResponse
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+logger = logging.getLogger("tackety")
 
 from engine.session_manager import SessionManager
 from engine.doc_processor import DocProcessor
@@ -35,6 +41,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """
+    Without this, an unhandled exception (e.g. a missing AI_API key, a
+    downstream AI provider outage) returns a bare 'Internal Server Error'
+    plain-text body with nothing logged beyond uvicorn's own traceback
+    dump - hard to diagnose in production and impossible for API clients
+    to parse. This logs the full traceback server-side and returns a
+    structured JSON body without leaking internals to the client.
+    """
+    logger.error("Unhandled exception on %s %s:\n%s", request.method, request.url.path, traceback.format_exc())
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error. Check the server logs for details."}
+    )
 
 # ── Component Initialization ──────────────────────────────────────────
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
