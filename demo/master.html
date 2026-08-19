@@ -161,6 +161,10 @@ no action           (technical or not)          human handover
    |       issues.db
    |            v
    |    webhook: ticket.created  (skipped if this was a retried/duplicate request)
+   |            v
+   |    webhook_outbox row written durably, delivery attempted immediately.
+   |    Failure? Retried with backoff by a background thread - never
+   |    silently dropped. See GET /webhooks/outbox on the Developer Queue page.
    v
 session closed</div>
         </section>

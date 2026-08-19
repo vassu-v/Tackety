@@ -111,6 +111,7 @@ issue_engine = IssueEngine(db_path=os.path.join(DATA_DIR, "issues.db"), embeddin
 # data - it lives in issues.db (permanent store), not conversations.db
 # (TTL-wiped by design). See engine/webhooks.py for the reasoning.
 webhooks = Webhooks(db_path=os.path.join(DATA_DIR, "issues.db"))
+webhooks.start_background_retry(interval_seconds=int(os.getenv("TACKETY_WEBHOOK_RETRY_INTERVAL", "30")))
 
 # 4. Intelligence Hubs
 chatbot = Chatbot(sm, doc_processor, company_context=company_context, management_context=management_context)
@@ -186,7 +187,12 @@ def resolve_cluster(cluster_id: int):
             "resolved_at": datetime.now(timezone.utc).isoformat()
         })
 
-    return {"status": "success", "resolved_id": cluster_id, "notifications_sent": len(result["emails"])}
+    # "queued" not "sent": dispatch_event() is now durable-but-async (see
+    # engine/webhooks.py) - this is the count of customers whose
+    # notification was persisted for delivery, not a confirmation that
+    # the webhook receiver actually got it. Check GET /webhooks/outbox
+    # for real delivery status.
+    return {"status": "success", "resolved_id": cluster_id, "notifications_queued": len(result["emails"])}
 
 @app.post("/session/message", response_model=MessageResponse, dependencies=[Depends(rate_limit)])
 def send_message(req: MessageRequest, idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key")):
@@ -251,6 +257,21 @@ def resolve_support_case(case_id: int):
     if not found:
         raise HTTPException(status_code=404, detail="No open case with that id")
     return {"status": "success", "resolved_id": case_id}
+
+@app.get("/webhooks/outbox", dependencies=[Depends(require_api_key)])
+def get_webhook_outbox(limit: int = 100):
+    """
+    Visibility into webhook delivery: every dispatch is durable (see
+    engine/webhooks.py) - this shows what's pending retry, delivered, or
+    given up on after repeated failures, instead of that information only
+    ever existing in server logs.
+    """
+    entries = webhooks.get_outbox(limit=limit)
+    return {
+        "entries": entries,
+        "pending": len([e for e in entries if e["status"] == "pending"]),
+        "failed": len([e for e in entries if e["status"] == "failed"]),
+    }
 
 
 

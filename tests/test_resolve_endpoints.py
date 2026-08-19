@@ -31,7 +31,7 @@ def test_cluster_resolve_then_double_resolve_404s(client, auth_headers, mock_ai_
 
     first_resolve = client.post(f"/clusters/{cluster_id}/resolve", headers=auth_headers)
     assert first_resolve.status_code == 200
-    assert first_resolve.json()["notifications_sent"] == 1
+    assert first_resolve.json()["notifications_queued"] == 1
 
     second_resolve = client.post(f"/clusters/{cluster_id}/resolve", headers=auth_headers)
     assert second_resolve.status_code == 404
