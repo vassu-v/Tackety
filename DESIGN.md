@@ -1,8 +1,8 @@
 # Issue Engine — Complete Architecture & Design Document
 
 **Version:** 0.1  
-**Status:** Pre-Build  
-**Date:** March 2026  
+**Status:** Built, hardened, deployable (phases 0 and 1 complete - see section 18 for current build status)  
+**Date:** March 2026 (original), last status update August 2026  
 **Every decision recorded. Every reason documented. Nothing left to chance.**
 
 ---
@@ -878,20 +878,29 @@ docs/
 
 ## 18. Build Status
 
+This table is from the original pre-build planning pass and stayed unedited through the whole build - by the time it was next touched, everything below had already shipped. Updated to reflect what's actually true as of the phase-1 (production deployment) work.
+
 | Component | Status | Notes |
 |-----------|--------|-------|
-| issue_engine.py | ✅ Done | Clustering, vector search, urgency escalation working |
-| cli.py | ✅ Done | Interactive CLI for testing engine |
-| test_issue_engine.py | ✅ Done | Tests passing |
-| call_ai.py | 🔲 Planned | Swappable AI caller — own file, single function |
-| session_manager.py | 🔲 Planned | Sessions, messages, lazy TTL cleanup |
-| chatbot.py | 🔲 Planned | Company doc context, conversation loop, classification |
-| normalizer.py | 🔲 Planned | Product doc context, hybrid vector + LLM, terminology mapping |
-| router.py | 🔲 Planned | Route by type, single point of coupling |
-| human_queue.py | 🔲 Planned | Least-loaded allocation, open_cases tracking |
-| webhook.py | 🔲 Planned | Signed POST, three events |
-| setup.py | 🔲 Planned | One-time deployment configuration |
-| api.py | 🔲 Planned | FastAPI, all endpoints |
+| issue_engine.py | ✅ Done | Clustering, vector search, urgency escalation, idempotent ticket creation |
+| ai.py | ✅ Done | Swappable AI caller (Google Gen AI SDK by default) |
+| session_manager.py | ✅ Done | Sessions, messages, lazy TTL cleanup |
+| chatbot.py | ✅ Done | Hybrid company/product context, conversation loop, classification |
+| normalizer.py | ✅ Done | Product doc context, hybrid vector + LLM, terminology mapping |
+| router.py | ✅ Done | Route by type, single point of coupling, idempotent |
+| human_queue.py | ✅ Done | Ticket/handover queue, resolution, idempotent enqueue |
+| webhooks.py | ✅ Done | HMAC-signed, SSRF-validated registration, durable outbox + retry |
+| auth.py | ✅ Done | X-API-Key on developer/agent endpoints |
+| rate_limit.py | ✅ Done | Per-client-IP fixed-window limiter on the public chat endpoints |
+| url_safety.py | ✅ Done | Private/loopback/link-local rejection for webhook registration |
+| backup.py | ✅ Done | SQLite online-backup-API snapshot of all databases |
+| setup_docs.py | ✅ Done | CLI knowledge-base ingestion from PDF/Markdown |
+| api.py | ✅ Done | FastAPI, all endpoints, structured logging, global exception handler |
+| Demo UI (chat, developer queue, agent workspace, overview) | ✅ Done | Shared nav/auth, raw-JSON transparency, working action buttons |
+| Automated test suite (pytest) | ✅ Done | 37 tests, offline, mocked AI |
+| Docker deployment | ✅ Done, unverified | Dockerfile + docker-compose.yml written; no Docker install available to build-test in the environment that wrote them |
+| Async request handling | 🔲 Not started | Every request currently blocks a worker thread for the LLM round-trip |
+| Idempotency-Key replay across a fully-closed session | 🔲 Known gap | See DESIGN.md decisions log and tests/test_idempotency.py for the exact boundary |
 
 ---
 
@@ -918,6 +927,12 @@ Every significant decision made during design, with the reason and what was reje
 | SQLite for all databases | Same philosophy as original engine. Portable, no external dependencies, single file per database, self-contained deployment | PostgreSQL (requires server), MongoDB (no benefit for this schema), external vector DB (adds dependency) |
 | FastAPI for api.py | Async, modern, automatic OpenAPI docs, type hints, fast. Standard choice for Python APIs | Flask (less modern, no async), Django (massively over-engineered for this), raw ASGI (too low level) |
 | setup.py CLI script for configuration | Developers are comfortable with CLI. No UI to build, no account system, no cloud service | Web UI for setup (adds a whole frontend to build), config file only (poor UX, easy to make errors), environment variables only (too many variables) |
+| X-API-Key auth on developer/agent endpoints, chat surface stays open | /support/queue and friends were completely unauthenticated - a real data exposure. The customer-facing chat is meant to be public by design | Full OAuth/user accounts (way over-scoped for a self-hosted tool), API key on every endpoint including chat (breaks the public widget use case) |
+| Webhook URL SSRF validation at registration time | The server makes a real outbound request to whatever URL is registered - unvalidated, that's a direct SSRF vector (cloud metadata endpoints, internal services) | Validating at dispatch time only (registration-time is simpler and catches the mistake immediately), trusting developers not to register malicious URLs (not a real defense) |
+| Webhook durable outbox + background retry, not fire-and-forget | A dead receiver silently lost events forever under the old fire-and-forget dispatch - unacceptable for a system whose value proposition is "developers get notified." One extra table, one daemon thread | External queue (Redis/RabbitMQ - real infra dependency this project explicitly avoids), synchronous retry-with-sleep inline in the request (blocks the request handler) |
+| Idempotency-Key header for ticket/case creation | A client retry after a network timeout was creating duplicate tickets and double-firing webhooks, corrupting the cluster weight signal the whole system exists to produce | Deduping by content hash (two genuinely-different reports can have identical summary text; also doesn't handle the case where the ticket differs but the retry is truly the same logical request) |
+| In-memory, per-instance rate limiter on /session/* | The public, unauthenticated chat surface had zero cost-abuse protection - each message is a real LLM API call. A simple fixed-window counter is sufficient for the single-instance self-hosted target this project is built for | Redis-backed distributed limiter (real infra dependency for a problem this project's target user doesn't have - see the deliberate SQLite-first, no-external-services philosophy above) |
+| Docker as the deployment story, not a bundled reverse proxy/orchestrator | Matches the "self-hostable, lightweight" positioning - one image, one compose file, a named volume. TLS/reverse-proxying is left to whatever the operator already runs in front of things they deploy | Kubernetes manifests (wildly over-scoped for the 5-20 person target team), bundling Caddy/nginx in the compose file (couples a specific reverse-proxy choice to the core deployment, which operators may already have their own) |
 
 ---
 

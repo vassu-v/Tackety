@@ -43,12 +43,15 @@ The core engine is **working and runnable today**, including auth, tests, and a 
 | Chatbot with RAG + state classification | ✅ Done |
 | Normalizer (customer → product terminology) | ✅ Done |
 | Human agent queue (ticket/handover routing + resolution) | ✅ Done |
-| Webhook system (HMAC-signed, SSRF-validated) | ✅ Done |
+| Webhook system (HMAC-signed, SSRF-validated, durable outbox + retry) | ✅ Done |
 | Issue clustering integration | ✅ Done |
 | Developer/agent endpoint auth | ✅ Done |
+| Rate limiting on public chat endpoints | ✅ Done |
 | Automated offline test suite (`pytest`) | ✅ Done |
-| Docker/deployment tooling | 🔲 Not started |
+| Docker deployment (`docker compose up`) | ✅ Done — see [`SETUP.md`](./SETUP.md) (image build is unverified in this environment; see note there) |
+| Structured logging + SQLite-consistent backup tooling | ✅ Done |
 | Async request handling | 🔲 Not started |
+| Idempotency-Key replay across a fully-closed session | 🔲 Known gap, documented in `tests/test_idempotency.py` |
 
 > You can run the demo today. Read [`DESIGN.md`](./DESIGN.md) to understand the full architecture and roadmap.
 
@@ -136,20 +139,30 @@ Server starts at `http://localhost:8000`. Interactive API docs at `http://localh
 
 Open `http://localhost:8000/demo/master.html` in your browser while the server is running - it links to the chat, developer queue, and agent workspace pages. Paste your API key into the nav bar once (see [`SETUP.md`](./SETUP.md) for details).
 
+### Or: run it with Docker
+
+```bash
+cp engine/.env.example engine/.env   # fill in AI_API at minimum
+docker compose up --build
+```
+
+One command, persistent data volume, health-checked. See [`SETUP.md`](./SETUP.md#6-docker-deployment) for details, and the note there about the image build not yet being verified against a real Docker install.
+
 ---
 
 ## 🔌 Key Endpoints
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `POST` | `/session/start` | none | Create a new conversation session |
-| `POST` | `/session/message` | none | Send a message, get AI response |
+| `POST` | `/session/start` | none, rate-limited | Create a new conversation session |
+| `POST` | `/session/message` | none, rate-limited | Send a message, get AI response |
 | `GET` | `/session/{id}/history` | none | Retrieve full message history |
 | `GET` | `/health` | none | Health check |
 | `GET` | `/support/queue` | `X-API-Key` | Ranked technical clusters + open support cases |
-| `POST` | `/clusters/{id}/resolve` | `X-API-Key` | Resolve a cluster, notify affected customers |
+| `POST` | `/clusters/{id}/resolve` | `X-API-Key` | Resolve a cluster, queue customer notifications |
 | `POST` | `/support/cases/{id}/resolve` | `X-API-Key` | Resolve a non-technical ticket or handover |
 | `POST` | `/setup/webhook` | `X-API-Key` | Register a webhook (SSRF-validated URL) |
+| `GET` | `/webhooks/outbox` | `X-API-Key` | Webhook delivery status - pending/delivered/failed |
 
 Full endpoint documentation, including request/response examples, in [`SETUP.md`](./SETUP.md).
 

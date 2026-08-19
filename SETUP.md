@@ -148,7 +148,7 @@ POST /clusters/{cluster_id}/resolve
 POST /support/cases/{case_id}/resolve
 X-API-Key: your-tackety-api-key
 ```
-Resolving a cluster fires a `ticket.resolved` webhook to every customer who reported it.
+Resolving a cluster queues a `ticket.resolved` webhook notification for every customer who reported it - "queued", not "sent": see the webhook durability section below for what that means.
 
 **3. Register Webhooks**
 Tackety uses generic, HMAC-SHA256 signed webhooks to push events to your infrastructure. Register an endpoint via the API (not by editing `engine/webhooks.py` directly):
@@ -166,6 +166,14 @@ Content-Type: application/json
 Registered URLs are validated and rejected if they resolve to a private, loopback, or link-local address (SSRF protection) - only public `http(s)` targets are accepted.
 *   Supported Events: `ticket.created`, `ticket.resolved`, `support.ticket_raised`, `handoff.initiated`.
 
+**4. Webhook Durability & Delivery Status**
+Every dispatched event is written to a durable outbox *before* delivery is attempted - a webhook receiver that's down doesn't lose the event. A background thread retries failed deliveries with exponential backoff (30s, 60s, 120s, ... capped at 1hr) for up to 8 attempts, after which the entry is marked `failed` and stays visible (it is not deleted or retried further):
+```http
+GET /webhooks/outbox?limit=100
+X-API-Key: your-tackety-api-key
+```
+Returns recent entries with `status` (`pending` / `delivered` / `failed`), `attempts`, and `last_error`. The Developer Queue demo page shows this live in a collapsible bar at the bottom. Retry timing is configurable via `TACKETY_WEBHOOK_RETRY_INTERVAL` (seconds between background sweeps, default 30) in `engine/.env`.
+
 ---
 
 ## 5. View the Demo UIs
@@ -174,5 +182,91 @@ While the engine is running, open `http://localhost:8000/demo/master.html` (or a
 
 *   **System Overview**: `demo/master.html` - live counts and an explanation of the routing flow, no fabricated numbers.
 *   **Customer Chat**: `demo/index.html` - talks to the chatbot; shows the raw engine response for every message.
-*   **Developer Queue**: `demo/queue.html` - ranked technical clusters, with a working Resolve action.
+*   **Developer Queue**: `demo/queue.html` - ranked technical clusters, with a working Resolve action and a live webhook outbox status bar.
 *   **Agent Workspace**: `demo/agent.html` - non-technical tickets and live handovers, with working Resolve actions.
+
+---
+
+## 6. Docker Deployment
+
+> [!WARNING]
+> The `Dockerfile` and `docker-compose.yml` here were written and reviewed carefully but **have not been build-verified against a real Docker installation** - the environment this was built in didn't have Docker available. Everything else in this guide has been tested end-to-end against a live server; this section hasn't. If you hit a build issue, please open an issue with the error - it's very likely something small (a base-image package name, a path) rather than a structural problem.
+
+```bash
+cp engine/.env.example engine/.env   # fill in AI_API, optionally TACKETY_API_KEY
+docker compose up --build
+```
+
+This builds a single image (`python:3.10-slim`, pre-downloads the embedding model at build time so the container doesn't need network access on first run), runs it as a non-root user, and persists all SQLite data in a named Docker volume (`tackety_data`) so it survives container restarts and rebuilds. The server is health-checked via `GET /health`.
+
+Server is reachable at `http://localhost:8000`, demo UI at `http://localhost:8000/demo/master.html`, same as running it natively.
+
+To stop: `docker compose down` (the data volume survives this - use `docker compose down -v` if you actually want to wipe it).
+
+To view logs: `docker compose logs -f tackety`
+
+**TLS / reverse proxy**: not included. For anything internet-facing, put a reverse proxy (Caddy, nginx, or your cloud provider's load balancer) in front of the container for TLS termination - this compose file exposes plain HTTP on port 8000 only, appropriate for local use or as the backend behind your own proxy.
+
+---
+
+## 7. Backing Up Your Data
+
+All state lives in SQLite files in `engine/data/` (or wherever `TACKETY_DATA_DIR` points). Back them up with:
+
+```bash
+python engine/backup.py                        # -> ./backups/<UTC timestamp>/
+python engine/backup.py --out /path/to/dest     # explicit destination
+```
+
+This uses SQLite's own online backup API, not a raw file copy - the server runs with WAL mode enabled (see `session_manager.py`), and a plain file copy taken while the server is writing can capture the database in an inconsistent state. The backup API produces a consistent snapshot while the live server keeps running and serving requests throughout - safe to run on a schedule (cron, Task Scheduler, etc.) against a live deployment.
+
+It also copies the preprocessed doc-context files (`company_context.txt`, `product_context.txt`, `management_rules.txt`) alongside the databases, since regenerating those requires re-running `setup_docs.py` against your original source documents.
+
+**Restoring**: stop the server, copy the backed-up files back into `engine/data/` (or your `TACKETY_DATA_DIR`), restart.
+
+---
+
+## 8. Logging
+
+Server-side logging uses Python's standard `logging` module (level `INFO` by default), replacing the old bare `print()` statements throughout the request-handling code. Log lines are tagged by module (`tackety.router`, `tackety.webhooks`, `tackety.support_hub`, `tackety.normalizer`, etc.) so you can filter by component. There's no separate log-level environment variable yet - if you need `DEBUG`-level output, edit the `logging.basicConfig(level=...)` call at the top of `engine/api.py`.
+
+`setup_docs.py`'s own progress messages (run when you (re)process your knowledge base) intentionally stay as plain `print()` output - that script is a one-shot CLI tool a human runs and watches, not a long-running server process.
+
+---
+
+## 9. Updating an Existing Deployment
+
+### Pulling and pushing changes (git)
+
+```bash
+git pull origin dev-sprint-engine-completion   # or main, whichever you're tracking
+```
+
+If you're contributing back, see [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the branching/PR workflow. If you're just running your own fork/instance and pushing your own changes:
+
+```bash
+git add <files>
+git commit -m "..."
+git push origin <your-branch>
+```
+
+There's nothing Tackety-specific about this beyond: **back up first** (see section 7) if the update touches anything in `engine/` - a schema change (new column, new table) is applied automatically on next startup (every `_init_db()` uses `CREATE TABLE IF NOT EXISTS` / defensive `ALTER TABLE` with an `OperationalError` catch), but a backup means you can always roll back if something's wrong.
+
+### Redeploying after pulling changes
+
+**Native (non-Docker):**
+```bash
+git pull
+pip install -r requirements.txt   # in case dependencies changed
+# stop the running server (Ctrl+C, or however you're managing the process), then:
+cd engine && python api.py
+```
+
+**Docker:**
+```bash
+git pull
+docker compose up --build -d
+```
+The data volume is untouched by a rebuild - only the application image changes.
+
+If you're running the server unattended (not just for local testing), use a process manager (systemd, pm2, supervisor, or Docker's own `restart: unless-stopped` as already configured in `docker-compose.yml`) so it comes back up after a crash or host reboot without you needing to be there.

@@ -25,27 +25,29 @@ To run Tackety locally and start contributing:
 
 2. **Set up a virtual environment (Recommended):**
    ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows use `.venv\Scripts\activate`
    ```
 
 3. **Install dependencies:**
    ```bash
-   cd engine
-   pip install fastapi uvicorn google-genai python-dotenv
+   pip install -r requirements-dev.txt   # includes requirements.txt + pytest/httpx/requests
    ```
-   *(Note: Ensure you have `sqlite-vec` dependencies installed if you are modifying clustering functionality).*
 
 4. **Environment Variables:**
-   Create a `.env` in the `engine/` folder:
-   ```env
-   AI_API=your_llm_api_key
-   ```
+   Copy `engine/.env.example` to `engine/.env` and fill in `AI_API`. Set `TACKETY_API_KEY` too if you want a stable key across restarts (otherwise one is generated and printed on every start) - you'll need it to exercise the developer/agent-facing endpoints (`/support/queue`, `/clusters/*/resolve`, `/setup/webhook`, `/webhooks/outbox`).
 
 5. **Run the API server:**
    ```bash
+   cd engine
    python api.py
    ```
+
+6. **Run the test suite before opening a PR:**
+   ```bash
+   pytest
+   ```
+   This runs entirely offline - no real AI provider key or live server required (`call_ai()` is mocked). If you're testing a change to the actual AI call path, see `tests/live_smoke.py`'s docstring for the separate manual live check.
 
 ## 📝 Submitting Changes
 
@@ -60,6 +62,7 @@ If you are planning a significant architectural change or adding a heavy new dep
 - Keep your changes as focused as possible.
 - Ensure your code follows standard Python formatting guidelines (PEP 8). We recommend using `black` or `ruff`.
 - If you modify `api.py` or the AI calls, test the `demo/index.html` interface to ensure you haven't broken the client-side payloads.
+- Run `pytest` and make sure it's green before opening a PR. If you're adding new behavior, add a test for it in `tests/` - see the existing files for the pattern (mocked `call_ai`, isolated temp data dir).
 
 ### Step 4: Submitting your Pull Request (PR)
 - Push your branch to your fork.
