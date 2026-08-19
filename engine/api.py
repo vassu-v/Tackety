@@ -21,6 +21,7 @@ from engine.normalizer import Normalizer
 from engine.human_queue import SupportHub
 from engine.issue_engine import IssueEngine
 from engine.webhooks import Webhooks
+from engine.auth import verify_api_key, announce_key
 
 # ── App Setup ──────────────────────────────────────────────────────────
 
@@ -89,6 +90,19 @@ webhooks = Webhooks(db_path=os.path.join(DATA_DIR, "conversations.db"))
 chatbot = Chatbot(sm, doc_processor, company_context=company_context, management_context=management_context)
 router = Router(normalizer, support_hub, issue_engine, webhooks, doc_processor)
 
+announce_key()
+
+# ── Auth ───────────────────────────────────────────────────────────────
+
+def require_api_key(x_api_key: Optional[str] = Header(None, alias="X-API-Key")):
+    """
+    Guards developer/agent-facing endpoints. The customer-facing chat
+    surface (/session/*) and /health stay open by design - this only
+    protects endpoints that read or mutate ticket/queue/webhook data.
+    """
+    if not verify_api_key(x_api_key):
+        raise HTTPException(status_code=401, detail="Missing or invalid X-API-Key header")
+
 # ── Request/Response Models ────────────────────────────────────────────
 
 class StartSessionRequest(BaseModel):
@@ -120,7 +134,7 @@ def start_session(req: StartSessionRequest):
     session_id = sm.start_session(customer_email=req.customer_email)
     return StartSessionResponse(session_id=session_id)
 
-@app.post("/setup/webhook")
+@app.post("/setup/webhook", dependencies=[Depends(require_api_key)])
 def register_webhook(req: WebhookRegistration):
     """Registers a webhook URL for a specific event."""
     conn = sm.conn
@@ -131,7 +145,7 @@ def register_webhook(req: WebhookRegistration):
     conn.commit()
     return {"status": "success", "event": req.event}
 
-@app.post("/clusters/{cluster_id}/resolve")
+@app.post("/clusters/{cluster_id}/resolve", dependencies=[Depends(require_api_key)])
 def resolve_cluster(cluster_id: int):
     """Marks a cluster as resolved and notifies all affected customers."""
     # 1. Resolve in issue_engine and get metadata
@@ -185,7 +199,7 @@ def get_session_history(session_id: str):
     return {"messages": history}
 
 
-@app.get("/support/queue")
+@app.get("/support/queue", dependencies=[Depends(require_api_key)])
 def get_support_queue():
     """
     Returns the unified support and intelligence status.
