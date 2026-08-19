@@ -187,25 +187,11 @@ While the engine is running, open `http://localhost:8000/demo/master.html` (or a
 
 ---
 
-## 6. Docker Deployment
+## 6. Deployment Notes (No Docker, By Choice)
 
-> [!WARNING]
-> The `Dockerfile` and `docker-compose.yml` here were written and reviewed carefully but **have not been build-verified against a real Docker installation** - the environment this was built in didn't have Docker available. Everything else in this guide has been tested end-to-end against a live server; this section hasn't. If you hit a build issue, please open an issue with the error - it's very likely something small (a base-image package name, a path) rather than a structural problem.
+Tackety deliberately ships **no Docker image**. It was tried and measured: the running server's baseline memory footprint is ~400MB (almost entirely `torch`/`sentence-transformers` loading the embedding model) - fine on a real server, tight on a small self-hosted box, and a container runtime's own overhead on top of that (a Docker Desktop VM easily reserves 2GB on Mac/Windows; even a native Linux daemon adds real overhead) doesn't buy enough to be worth it for the target deployment size here. See `DESIGN.md`'s decisions log for the full reasoning.
 
-```bash
-cp engine/.env.example engine/.env   # fill in AI_API, optionally TACKETY_API_KEY
-docker compose up --build
-```
-
-This builds a single image (`python:3.10-slim`, pre-downloads the embedding model at build time so the container doesn't need network access on first run), runs it as a non-root user, and persists all SQLite data in a named Docker volume (`tackety_data`) so it survives container restarts and rebuilds. The server is health-checked via `GET /health`.
-
-Server is reachable at `http://localhost:8000`, demo UI at `http://localhost:8000/demo/master.html`, same as running it natively.
-
-To stop: `docker compose down` (the data volume survives this - use `docker compose down -v` if you actually want to wipe it).
-
-To view logs: `docker compose logs -f tackety`
-
-**TLS / reverse proxy**: not included. For anything internet-facing, put a reverse proxy (Caddy, nginx, or your cloud provider's load balancer) in front of the container for TLS termination - this compose file exposes plain HTTP on port 8000 only, appropriate for local use or as the backend behind your own proxy.
+Run it as a plain Python process (section 3 above). For anything unattended (not just local testing), put your own process supervisor in front of it (systemd, pm2, supervisor - whatever you already use) and your own reverse proxy in front of that for TLS if it's internet-facing (Caddy, nginx, your cloud provider's load balancer). Neither is bundled here on purpose - it's one more thing this project would otherwise be opinionated about that operators usually already have a preference for.
 
 ---
 
@@ -254,7 +240,6 @@ There's nothing Tackety-specific about this beyond: **back up first** (see secti
 
 ### Redeploying after pulling changes
 
-**Native (non-Docker):**
 ```bash
 git pull
 pip install -r requirements.txt   # in case dependencies changed
@@ -262,11 +247,4 @@ pip install -r requirements.txt   # in case dependencies changed
 cd engine && python api.py
 ```
 
-**Docker:**
-```bash
-git pull
-docker compose up --build -d
-```
-The data volume is untouched by a rebuild - only the application image changes.
-
-If you're running the server unattended (not just for local testing), use a process manager (systemd, pm2, supervisor, or Docker's own `restart: unless-stopped` as already configured in `docker-compose.yml`) so it comes back up after a crash or host reboot without you needing to be there.
+If you're running the server unattended, use whatever process supervisor you already run other services under (systemd, pm2, supervisor, ...) so it comes back up after a crash or host reboot without you needing to be there - not bundled here, see section 6.

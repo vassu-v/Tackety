@@ -48,8 +48,8 @@ The core engine is **working and runnable today**, including auth, tests, and a 
 | Developer/agent endpoint auth | ✅ Done |
 | Rate limiting on public chat endpoints | ✅ Done |
 | Automated offline test suite (`pytest`) | ✅ Done |
-| Docker deployment (`docker compose up`) | ✅ Done — see [`SETUP.md`](./SETUP.md) (image build is unverified in this environment; see note there) |
 | Structured logging + SQLite-consistent backup tooling | ✅ Done |
+| Web UI for knowledge-base setup (upload docs, no CLI needed) | ✅ Done |
 | Async request handling | 🔲 Not started |
 | Idempotency-Key replay across a fully-closed session | 🔲 Known gap, documented in `tests/test_idempotency.py` |
 
@@ -137,16 +137,9 @@ Server starts at `http://localhost:8000`. Interactive API docs at `http://localh
 
 ### 5. Open the demo
 
-Open `http://localhost:8000/demo/master.html` in your browser while the server is running - it links to the chat, developer queue, and agent workspace pages. Paste your API key into the nav bar once (see [`SETUP.md`](./SETUP.md) for details).
+Open `http://localhost:8000/demo/master.html` in your browser while the server is running - it links to the chat, developer queue, and agent workspace pages, and includes a **Knowledge Base Setup** panel so you can upload your company/product/policy docs without touching the CLI. Paste your API key into the nav bar once (see [`SETUP.md`](./SETUP.md) for details).
 
-### Or: run it with Docker
-
-```bash
-cp engine/.env.example engine/.env   # fill in AI_API at minimum
-docker compose up --build
-```
-
-One command, persistent data volume, health-checked. See [`SETUP.md`](./SETUP.md#6-docker-deployment) for details, and the note there about the image build not yet being verified against a real Docker install.
+> No Docker image is provided. The app's baseline memory footprint (~400MB, mostly the embedding model) plus a container runtime's own overhead doesn't fit the small self-hosted deployments this project targets well - see `DESIGN.md`'s decisions log for the full reasoning. Run it as a plain Python process (above), behind whatever process supervisor and reverse proxy you already use.
 
 ---
 
